@@ -7,7 +7,7 @@ import logging
 from pathlib import Path
 from pdf_reader import extract_text_from_pdf
 from analyzer import parse_report
-from structure_analyzer import analyze_structure
+from structure_analyzer import analyze_structure, extract_layout_json
 from data_generator import generate_variation
 from pdf_writer import export_to_pdf
 
@@ -19,12 +19,15 @@ OUTPUT = "output/vari.pdf"
 
 def process_pdf(input_path: str = INPUT, output_path: str = OUTPUT, variation_level: str = "moderate"):
     logger.info("Processing %s -> %s", input_path, output_path)
-    # 1. analyze structure (sample first page)
+    # 1. analyze structure (sample first page) and full layout JSON
+    layout_json = extract_layout_json(input_path, sample_pages=[0])
     structure = analyze_structure(input_path, sample_pages=[0])
     # 2. extract text (OCR fallback if needed)
     text = extract_text_from_pdf(input_path, ocr_lang="heb+eng")
     # 3. parse into rows
     rows, report_type = parse_report(text)
+    if not report_type and layout_json.get("report_type"):
+        report_type = layout_json["report_type"]
     if not rows:
         logger.warning("No data rows parsed; aborting export.")
         return
@@ -33,6 +36,7 @@ def process_pdf(input_path: str = INPUT, output_path: str = OUTPUT, variation_le
     # 5. write pdf
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     export_to_pdf(new_rows, layout=structure, output_path=output_path)
+    logger.info("Layout JSON: %s", layout_json)
     logger.info("Done. Output at %s", output_path)
 
 if __name__ == "__main__":
