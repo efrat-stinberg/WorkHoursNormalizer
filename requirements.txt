@@ -1,6 +1,17 @@
 # PDF processing libraries
 pdfplumber>=0.9.0
 PyMuPDF>=1.23.0
+PyPDF2>=3.0.0
 
-# Optional: for better date/time parsing
+# PDF generation
+reportlab>=4.0.0
+
+# Text processing and RTL support
+python-bidi>=0.4.2
+arabic-reshaper>=3.0.0
+
+# Date/time processing
 python-dateutil>=2.8.0
+
+# Additional utilities
+pathlib2>=2.3.0

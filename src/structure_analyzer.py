@@ -237,22 +237,62 @@ def extract_layout_json(pdf_path: str, sample_pages: List[int] | None = None) ->
 
 
 def analyze_structure(pdf_path, sample_pages=[0], ocr_lang="heb+eng"):
-    """Backward-compatible wrapper returning a simplified column list for writer."""
+    """Enhanced structure analysis that preserves exact layout and formatting."""
     layout = extract_layout_json(pdf_path, sample_pages=sample_pages)
     first_page = layout.get("pages", [{}])[0]
+    
+    # Extract comprehensive structure information
+    structure = {
+        "columns": [],
+        "page_info": first_page,
+        "fonts": first_page.get("fonts", []),
+        "margins": first_page.get("margins", {}),
+        "row_spacing": first_page.get("row_spacing", 14.0),
+        "table_bbox": first_page.get("table_bbox", {}),
+        "report_type": layout.get("report_type", "unknown")
+    }
+    
+    # Process columns with enhanced information
     cols = first_page.get("columns", [])
-    structure = [
-        {"name": c["name"], "x_start": c["x"], "width": c["width"], "align": c.get("alignment", "left")}
-        for c in cols
-    ]
-    if not structure:
-        logging.info(f"Structure analysis fallback for {pdf_path} — no columns found, using dummy.")
-        structure = [
-            {"name": "col_1", "x_start": 50, "width": 120, "align": "left"},
-            {"name": "col_2", "x_start": 180, "width": 80, "align": "center"},
-            {"name": "col_3", "x_start": 270, "width": 60, "align": "center"},
-            {"name": "col_4", "x_start": 340, "width": 60, "align": "center"},
-            {"name": "col_5", "x_start": 410, "width": 60, "align": "right"},
+    for c in cols:
+        structure["columns"].append({
+            "name": c["name"],
+            "x_start": c["x"],
+            "width": c["width"],
+            "align": c.get("alignment", "left"),
+            "font_size": _get_column_font_size(c, first_page),
+            "font_style": _get_column_font_style(c, first_page)
+        })
+    
+    # Fallback structure if no columns detected
+    if not structure["columns"]:
+        logging.info(f"Structure analysis fallback for {pdf_path} — no columns found, using default layout.")
+        structure["columns"] = [
+            {"name": "תאריך", "x_start": 50, "width": 80, "align": "left", "font_size": 10, "font_style": "normal"},
+            {"name": "יום", "x_start": 140, "width": 60, "align": "center", "font_size": 10, "font_style": "normal"},
+            {"name": "כניסה", "x_start": 210, "width": 60, "align": "center", "font_size": 10, "font_style": "normal"},
+            {"name": "יציאה", "x_start": 280, "width": 60, "align": "center", "font_size": 10, "font_style": "normal"},
+            {"name": "סה\"כ", "x_start": 350, "width": 60, "align": "right", "font_size": 10, "font_style": "normal"},
         ]
-    logging.info("Structure analysis completed for %s — detected %d columns", pdf_path, len(structure))
+    
+    logging.info("Enhanced structure analysis completed for %s — detected %d columns", pdf_path, len(structure["columns"]))
     return structure
+
+def _get_column_font_size(column, page_info):
+    """Extract font size for a column based on page analysis."""
+    fonts = page_info.get("fonts", [])
+    if fonts:
+        # Return the most common font size
+        return fonts[0].get("size", 10)
+    return 10
+
+def _get_column_font_style(column, page_info):
+    """Extract font style for a column based on page analysis."""
+    fonts = page_info.get("fonts", [])
+    if fonts:
+        styles = fonts[0].get("styles", {})
+        if styles.get("bold"):
+            return "bold"
+        elif styles.get("italic"):
+            return "italic"
+    return "normal"
