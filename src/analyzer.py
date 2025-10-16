@@ -1,60 +1,40 @@
-# analyzer.py
-# This module parses extracted text into structured data
-# and identifies the report type.
-
 import re
+
+from src.utils import clean_text
 
 
 def parse_report(text):
     """
-    Parse text from a PDF into structured data and identify report type.
-
-    Args:
-        text (str): Raw text extracted from PDF.
-
-    Returns:
-        tuple:
-            data (list of dict): Structured data with columns like date, start, end, total_hours
-            report_type (str): Type of report ('type1' or 'type2')
+    Parse attendance report (Hebrew type) into structured data.
     """
-    lines = text.splitlines()
+
+    text = clean_text(text)
+    lines = [l.strip() for l in text.split("\n") if l.strip()]
+
+    merged_lines = []
+    buffer = ""
+    for line in lines:
+        if re.match(r"^\d{2}/\d{2}/\d{4}", line):
+            if buffer:
+                merged_lines.append(buffer.strip())
+            buffer = line
+        else:
+            buffer += " " + line
+    if buffer:
+        merged_lines.append(buffer.strip())
+
+    headers = ["תאריך", "יום", "נ\"ב", "זמן עו", "כניסה", "יציאה", "הפסקה",
+               "סה\"כ", "100%", "125%", "150%", "שבת"]
     data = []
 
-    # Step 1: Identify report type based on keywords or header structure
-    if "Start" in text and "End" in text:  # Example: type1 has Start/End columns
-        report_type = "type1"
-    elif "Check-in" in text and "Check-out" in text:  # Example: type2
-        report_type = "type2"
-    else:
-        report_type = "unknown"
+    for line in merged_lines:
+        match = re.match(
+            r"(\d{2}/\d{2}/\d{4})\s+(\S+)\s+(\S+)?\s+(\S+)?\s+(\d{2}:\d{2})\s+(\d{2}:\d{2})\s+(\d{2}:\d{2})?\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)",
+            line)
+        if match:
+            values = list(match.groups())
+            entry = dict(zip(headers, values))
+            data.append(entry)
 
-    # Step 2: Parse each line into columns (simplified example)
-    for line in lines:
-        # Skip empty lines
-        if not line.strip():
-            continue
-
-        # Example parsing based on spaces or known column patterns
-        if report_type == "type1":
-            # Assuming format: Date Start End Total
-            match = re.match(r"(\d{2}/\d{2}/\d{4})\s+(\d{2}:\d{2})\s+(\d{2}:\d{2})\s+([\d.]+)", line)
-            if match:
-                date, start, end, total = match.groups()
-                data.append({
-                    "date": date,
-                    "start": start,
-                    "end": end,
-                    "total_hours": float(total)
-                })
-        elif report_type == "type2":
-            # Different parsing rules for type2
-            match = re.match(r"(\d{2}/\d{2}/\d{4})\s+(\d{2}:\d{2})\s+(\d{2}:\d{2})", line)
-            if match:
-                date, check_in, check_out = match.groups()
-                data.append({
-                    "date": date,
-                    "check_in": check_in,
-                    "check_out": check_out
-                })
-
-    return data, report_type
+    print(f"\n✅ זוהו {len(data)} שורות פעילות")
+    return data, "attendance_type_hebrew"
