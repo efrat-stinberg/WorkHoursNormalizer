@@ -1,8 +1,6 @@
-reportlab>=3.6.12
-python-bidi>=0.4.2
-arabic-reshaper>=2.1.2
-PyPDF2>=3.0.1
-pytesseract>=0.3.10
-pdf2image>=1.16.0
-PyMuPDF>=1.24.10
-pdfplumber>=0.11.0
+# PDF processing libraries
+pdfplumber>=0.9.0
+PyMuPDF>=1.23.0
+
+# Optional: for better date/time parsing
+python-dateutil>=2.8.0
