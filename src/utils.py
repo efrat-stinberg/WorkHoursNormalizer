@@ -11,6 +11,7 @@ from datetime import datetime, timedelta, time
 from typing import Optional, Tuple
 import re
 import logging
+import random
 
 logger = logging.getLogger("utils")
 logger.addHandler(logging.NullHandler())
@@ -84,6 +85,24 @@ def sanitize_text(text: str) -> str:
     text = re.sub(r"[ \t]+", " ", text)
     text = re.sub(r"\n{2,}", "\n", text)
     return text.strip()
+
+
+# Backward-compatible alias used by other modules
+def clean_text(text: str) -> str:
+    return sanitize_text(text)
+
+
+def random_time_variation(dt: datetime, minutes_variation: int = 10) -> str:
+    """Return a slightly varied time string for a given datetime.
+
+    Variation is chosen uniformly from [-minutes_variation, +minutes_variation].
+    Returns formatted string "HH:MM".
+    """
+    if not isinstance(dt, datetime):
+        return ""
+    delta_minutes = random.randint(-minutes_variation, minutes_variation)
+    varied = dt + timedelta(minutes=delta_minutes)
+    return time_to_str(varied)
 
 
 def safe_float(s: Optional[str], default: float = 0.0) -> float:
