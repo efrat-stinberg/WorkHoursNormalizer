@@ -1,6 +1,5 @@
 import re
-
-from src.utils import clean_text
+from utils import sanitize_text
 
 
 def parse_report(text):
@@ -8,7 +7,7 @@ def parse_report(text):
     Parse attendance report (Hebrew type) into structured data.
     """
 
-    text = clean_text(text)
+    text = sanitize_text(text)
     lines = [l.strip() for l in text.split("\n") if l.strip()]
 
     merged_lines = []

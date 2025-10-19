@@ -11,7 +11,6 @@ from datetime import datetime, timedelta, time
 from typing import Optional, Tuple
 import re
 import logging
-import random
 
 logger = logging.getLogger("utils")
 logger.addHandler(logging.NullHandler())
@@ -19,14 +18,39 @@ logger.addHandler(logging.NullHandler())
 TIME_FORMAT = "%H:%M"
 DATE_FORMAT = "%d/%m/%Y"
 
+import random
+from datetime import datetime, timedelta
 
-def parse_time(s: Optional[str]) -> Optional[datetime]:
+
+def time_to_str(dt):
+    """Convert datetime to string HH:MM format."""
+    return dt.strftime("%H:%M")
+
+def random_time_variation(time_obj, minutes_variation=15):
+    """
+    Adds a random variation of ±minutes_variation minutes to a datetime time object.
+    Keeps the result within 00:00–23:59.
+    """
+    delta = timedelta(minutes=random.randint(-minutes_variation, minutes_variation))
+    varied = time_obj + delta
+    # keep within day bounds
+    if varied.day != time_obj.day:
+        varied = time_obj.replace(hour=max(0, min(23, varied.hour)),
+                                  minute=max(0, min(59, varied.minute)))
+    return varied
+def parse_time(s: Optional[str | datetime]) -> Optional[datetime]:
     """
     Parse "HH:MM" into datetime (today's date).
+    If input is already datetime, return it unchanged.
     Returns None on failure.
     """
     if not s:
         return None
+
+    # Already a datetime? Return as-is
+    if isinstance(s, datetime):
+        return s
+
     s = s.strip()
     try:
         dt = datetime.strptime(s, TIME_FORMAT)
@@ -85,24 +109,6 @@ def sanitize_text(text: str) -> str:
     text = re.sub(r"[ \t]+", " ", text)
     text = re.sub(r"\n{2,}", "\n", text)
     return text.strip()
-
-
-# Backward-compatible alias used by other modules
-def clean_text(text: str) -> str:
-    return sanitize_text(text)
-
-
-def random_time_variation(dt: datetime, minutes_variation: int = 10) -> str:
-    """Return a slightly varied time string for a given datetime.
-
-    Variation is chosen uniformly from [-minutes_variation, +minutes_variation].
-    Returns formatted string "HH:MM".
-    """
-    if not isinstance(dt, datetime):
-        return ""
-    delta_minutes = random.randint(-minutes_variation, minutes_variation)
-    varied = dt + timedelta(minutes=delta_minutes)
-    return time_to_str(varied)
 
 
 def safe_float(s: Optional[str], default: float = 0.0) -> float:
