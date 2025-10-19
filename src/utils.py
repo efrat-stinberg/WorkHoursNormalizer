@@ -6,7 +6,8 @@ utils.py
 - פונקציות עזר ל-RTL/עברית
 """
 
-from __future__ import annotations
+import random
+from datetime import datetime, timedelta
 from datetime import datetime, timedelta, time
 from typing import Optional, Tuple
 import re
@@ -18,26 +19,22 @@ logger.addHandler(logging.NullHandler())
 TIME_FORMAT = "%H:%M"
 DATE_FORMAT = "%d/%m/%Y"
 
-import random
-from datetime import datetime, timedelta
-
-
 def time_to_str(dt):
     """Convert datetime to string HH:MM format."""
     return dt.strftime("%H:%M")
 
-def random_time_variation(time_obj, minutes_variation=15):
-    """
-    Adds a random variation of ±minutes_variation minutes to a datetime time object.
-    Keeps the result within 00:00–23:59.
-    """
-    delta = timedelta(minutes=random.randint(-minutes_variation, minutes_variation))
-    varied = time_obj + delta
-    # keep within day bounds
-    if varied.day != time_obj.day:
-        varied = time_obj.replace(hour=max(0, min(23, varied.hour)),
-                                  minute=max(0, min(59, varied.minute)))
-    return varied
+# def random_time_variation(time_obj, minutes_variation=15):
+#     """
+#     Adds a random variation of ±minutes_variation minutes to a datetime time object.
+#     Keeps the result within 00:00–23:59.
+#     """
+#     delta = timedelta(minutes=random.randint(-minutes_variation, minutes_variation))
+#     varied = time_obj + delta
+#     # keep within day bounds
+#     if varied.day != time_obj.day:
+#         varied = time_obj.replace(hour=max(0, min(23, varied.hour)),
+#                                   minute=max(0, min(59, varied.minute)))
+#     return varied
 def parse_time(s: Optional[str | datetime]) -> Optional[datetime]:
     """
     Parse "HH:MM" into datetime (today's date).

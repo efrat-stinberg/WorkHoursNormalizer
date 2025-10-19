@@ -14,7 +14,7 @@ from pdf_writer import create_pdf
 logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(asctime)s %(message)s")
 logger = logging.getLogger("main")
 
-INPUT = "input/a_r_9.pdf"
+INPUT = "input/u.pdf"
 OUTPUT = "output/va.pdf"
 
 def process_pdf(input_path: str = INPUT, output_path: str = OUTPUT, variation_level: str = "moderate"):

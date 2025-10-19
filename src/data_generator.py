@@ -1,6 +1,6 @@
 import random
 from datetime import datetime, timedelta
-from src.utils import parse_time, random_time_variation, time_to_str
+from src.utils import parse_time, time_to_str
 
 
 def create_variation(data):
@@ -12,12 +12,12 @@ def create_variation(data):
     new_data = []
     for row in data:
         new_row = row.copy()
-        start = parse_time(row.get("כניסה"))
-        end = parse_time(row.get("יציאה"))
+        start = row.get("כניסה")
+        end = row.get("יציאה")
 
         if start and end:
-            new_row["כניסה"] = random_time_variation(start)
-            new_row["יציאה"] = random_time_variation(end)
+            new_row["כניסה"] = start
+            new_row["יציאה"] = end
             # compute total
             total_hours = (parse_time(new_row["יציאה"]) -
                            parse_time(new_row["כניסה"])).seconds / 3600.0
