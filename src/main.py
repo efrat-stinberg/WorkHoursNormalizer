@@ -1,44 +1,270 @@
 """
-main.py
-דוגמת שימוש: מריץ את כל ה-flow
+main.py - Main Entry Point
+נקודת כניסה ראשית למערכת עיבוד דוחות נוכחות
 """
 
 import logging
+import sys
 from pathlib import Path
-from pdf_reader import extract_text_from_pdf
-from analyzer import parse_report
-from structure_analyzer import analyze_structure, extract_layout_json
-from data_generator import create_variation
-from pdf_writer import create_pdf
+from typing import Optional
 
-logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(asctime)s %(message)s")
-logger = logging.getLogger("main")
+# ייבוא המודולים המשופרים
+from pdf_reader import read_pdf
+from attendance_parser import parse_attendance_report
+from data_generator import create_variation, VariationLevel
+from pdf_writer import write_pdf
 
-INPUT = "input/u.pdf"
-OUTPUT = "output/va.pdf"
+# הגדרת logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='[%(levelname)s] %(asctime)s - %(name)s - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
 
-def process_pdf(input_path: str = INPUT, output_path: str = OUTPUT, variation_level: str = "moderate"):
-    logger.info("Processing %s -> %s", input_path, output_path)
-    # 1. analyze structure (sample first page) and full layout JSON
-    layout_json = extract_layout_json(input_path, sample_pages=[0])
-    structure = analyze_structure(input_path, sample_pages=[0])
-    # 2. extract text (OCR fallback if needed)
-    text = extract_text_from_pdf(input_path)
-    # 3. parse into rows
-    rows, report_type = parse_report(text)
-    if not report_type and layout_json.get("report_type"):
-        report_type = layout_json["report_type"]
-    if not rows:
-        logger.warning("No data rows parsed; aborting export.")
-        return
-    # 4. generate variation
-    new_rows = create_variation(rows)
-    # 5. write pdf
-    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
-    create_pdf(output_path, new_rows, flip_text=True)
-    logger.info("Layout JSON: %s", layout_json)
-    logger.info("Done. Output at %s", output_path)
+logger = logging.getLogger(__name__)
+
+
+class AttendanceReportProcessor:
+    """מעבד ראשי לדוחות נוכחות"""
+
+    def __init__(self):
+        self.pdf_content = None
+        self.parsed_report = None
+        self.varied_report = None
+
+    def process(self,
+                input_path: str,
+                output_path: str,
+                variation_level: str = VariationLevel.MODERATE,
+                preserve_layout: bool = True) -> bool:
+        """
+        עיבוד מלא של דוח נוכחות
+
+        Args:
+            input_path: נתיב קובץ PDF קלט
+            output_path: נתיב קובץ PDF פלט
+            variation_level: רמת שינוי (minimal/moderate/significant)
+            preserve_layout: שמירת עיצוב מקורי
+
+        Returns:
+            True אם הצליח, False אחרת
+        """
+        try:
+            logger.info("="*70)
+            logger.info(f"Starting processing: {input_path} → {output_path}")
+            logger.info("="*70)
+
+            # שלב 1: קריאת PDF
+            logger.info("📖 Step 1/4: Reading PDF and analyzing structure...")
+            self.pdf_content = self._read_pdf(input_path)
+            if not self.pdf_content:
+                return False
+
+            # שלב 2: פרסור נתונים
+            logger.info("🔍 Step 2/4: Parsing attendance data...")
+            self.parsed_report = self._parse_report()
+            if not self.parsed_report:
+                return False
+
+            # שלב 3: יצירת וריאציה
+            logger.info(f"🔄 Step 3/4: Generating variation (level: {variation_level})...")
+            self.varied_report = self._create_variation(variation_level)
+            if not self.varied_report:
+                return False
+
+            # שלב 4: כתיבת PDF
+            logger.info("📝 Step 4/4: Writing output PDF...")
+            success = self._write_pdf(output_path, preserve_layout)
+
+            if success:
+                logger.info("="*70)
+                logger.info("✅ Processing completed successfully!")
+                logger.info(f"   Output saved to: {output_path}")
+                logger.info(f"   Records processed: {len(self.varied_report.records)}")
+                logger.info(f"   Total hours: {self.varied_report.metadata.total_hours:.2f}")
+                logger.info("="*70)
+                return True
+
+            return False
+
+        except Exception as e:
+            logger.error(f"❌ Processing failed: {e}", exc_info=True)
+            return False
+
+    def _read_pdf(self, input_path: str) -> Optional[object]:
+        """קריאת PDF עם טיפול בשגיאות"""
+        try:
+            # בדיקת קיום קובץ
+            path = Path(input_path)
+            if not path.exists():
+                logger.error(f"Input file not found: {input_path}")
+                return None
+
+            if not path.suffix.lower() == '.pdf':
+                logger.error(f"Input file is not a PDF: {input_path}")
+                return None
+
+            # קריאה
+            content = read_pdf(str(path), analyze_structure=True)
+
+            logger.info(f"   ✓ PDF read successfully")
+            logger.info(f"   ✓ Pages: {content.page_count}")
+            logger.info(f"   ✓ Text length: {len(content.text)} characters")
+            logger.info(f"   ✓ Structures analyzed: {len(content.structures)}")
+
+            return content
+
+        except Exception as e:
+            logger.error(f"Failed to read PDF: {e}")
+            return None
+
+    def _parse_report(self) -> Optional[object]:
+        """פרסור הדוח עם טיפול בשגיאות"""
+        try:
+            if not self.pdf_content or not self.pdf_content.text:
+                logger.error("No text content to parse")
+                return None
+
+            # פרסור
+            report = parse_attendance_report(self.pdf_content.text)
+
+            if not report.records:
+                logger.warning("No attendance records found in document")
+                return None
+
+            logger.info(f"   ✓ Template identified: {report.template_type.value}")
+            logger.info(f"   ✓ Records found: {len(report.records)}")
+
+            if report.metadata.total_hours:
+                logger.info(f"   ✓ Total hours: {report.metadata.total_hours:.2f}")
+
+            return report
+
+        except Exception as e:
+            logger.error(f"Failed to parse report: {e}")
+            return None
+
+    def _create_variation(self, variation_level: str) -> Optional[object]:
+        """יצירת וריאציה עם טיפול בשגיאות"""
+        try:
+            if not self.parsed_report:
+                logger.error("No parsed report to vary")
+                return None
+
+            # יצירת וריאציה
+            varied = create_variation(self.parsed_report, variation_level)
+
+            logger.info(f"   ✓ Variation created successfully")
+            logger.info(f"   ✓ Modified records: {len(varied.records)}")
+
+            # השוואה
+            original_hours = self.parsed_report.metadata.total_hours or 0
+            varied_hours = varied.metadata.total_hours or 0
+            diff = abs(varied_hours - original_hours)
+
+            logger.info(f"   ✓ Hours difference: {diff:.2f} ({original_hours:.2f} → {varied_hours:.2f})")
+
+            return varied
+
+        except Exception as e:
+            logger.error(f"Failed to create variation: {e}")
+            return None
+
+    def _write_pdf(self, output_path: str, preserve_layout: bool) -> bool:
+        """כתיבת PDF עם טיפול בשגיאות"""
+        try:
+            if not self.varied_report:
+                logger.error("No varied report to write")
+                return False
+
+            # יצירת תיקיית פלט
+            output_path_obj = Path(output_path)
+            output_path_obj.parent.mkdir(parents=True, exist_ok=True)
+
+            # קבלת מבנה אם קיים
+            structure = None
+            if self.pdf_content and self.pdf_content.structures:
+                structure = self.pdf_content.structures[0] if self.pdf_content.structures else None
+
+            # כתיבה
+            write_pdf(
+                str(output_path_obj),
+                self.varied_report,
+                structure=structure,
+                preserve_layout=preserve_layout
+            )
+
+            logger.info(f"   ✓ PDF written to: {output_path}")
+
+            # בדיקת גודל
+            if output_path_obj.exists():
+                size_kb = output_path_obj.stat().st_size / 1024
+                logger.info(f"   ✓ File size: {size_kb:.1f} KB")
+
+            return True
+
+        except Exception as e:
+            logger.error(f"Failed to write PDF: {e}")
+            return False
+
+
+def process_pdf(input_path: str = "input/attendance.pdf",
+                output_path: str = "output/attendance_varied.pdf",
+                variation_level: str = VariationLevel.MODERATE,
+                preserve_layout: bool = True) -> bool:
+    """
+    פונקציה עזר לעיבוד דוח
+
+    Args:
+        input_path: נתיב קלט
+        output_path: נתיב פלט
+        variation_level: רמת שינוי (minimal/moderate/significant)
+        preserve_layout: שמירת עיצוב
+
+    Returns:
+        True אם הצליח
+    """
+    processor = AttendanceReportProcessor()
+    return processor.process(input_path, output_path, variation_level, preserve_layout)
+
+
+def main():
+    """נקודת כניסה ראשית"""
+
+    # ברירות מחדל
+    DEFAULT_INPUT = "input/w.pdf"
+    DEFAULT_OUTPUT = "output/new.pdf"
+
+    # קריאת ארגומנטים (פשוט)
+    if len(sys.argv) > 1:
+        input_path = sys.argv[1]
+    else:
+        input_path = DEFAULT_INPUT
+
+    if len(sys.argv) > 2:
+        output_path = sys.argv[2]
+    else:
+        output_path = DEFAULT_OUTPUT
+
+    if len(sys.argv) > 3:
+        variation_level = sys.argv[3]
+        if variation_level not in [VariationLevel.MINIMAL, VariationLevel.MODERATE, VariationLevel.SIGNIFICANT]:
+            logger.warning(f"Invalid variation level '{variation_level}', using 'moderate'")
+            variation_level = VariationLevel.MODERATE
+    else:
+        variation_level = VariationLevel.MODERATE
+
+    # עיבוד
+    success = process_pdf(
+        input_path=input_path,
+        output_path=output_path,
+        variation_level=variation_level,
+        preserve_layout=True
+    )
+
+    # יציאה עם קוד מתאים
+    sys.exit(0 if success else 1)
 
 
 if __name__ == "__main__":
-    process_pdf()
+    main()
