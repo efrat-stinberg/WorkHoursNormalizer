@@ -24,8 +24,8 @@ Thumbs.db
 output/
 *.log
 
-# PDFs generated for testing
-*.pdf
+## PDFs generated for testing
+#*.pdf
 
 # Other
 *.sqlite3

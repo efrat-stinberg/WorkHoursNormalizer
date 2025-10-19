@@ -1,139 +1,105 @@
-# PDF Attendance Data Extractor
+# מערכת עיבוד דוחות נוכחות - Attendance Report Processor
 
-A Python module for extracting structured attendance data from PDF files. Supports both pdfplumber and PyMuPDF libraries for robust PDF processing.
+מערכת לעיבוד אוטומטי של דוחות נוכחות בפורמט PDF, יצירת וריאציות בזמני עבודה, ויצירת דוח חדש.
 
-## Features
+---
 
-- **Multiple PDF Libraries**: Supports both pdfplumber and PyMuPDF
-- **Flexible Date/Time Parsing**: Handles various date and time formats
-- **Structured Output**: Returns data as a list of dictionaries
-- **Error Handling**: Comprehensive error handling and logging
-- **Easy to Use**: Simple API with automatic library selection
+## 🧾 תיאור הפרויקט
+המערכת מאפשרת:
+- קריאה ופרסור של קבצי PDF עם דוחות נוכחות  
+- זיהוי אוטומטי של סוג התבנית (פשוטה / מפורטת)  
+- יצירת וריאציות לוגיות בזמני כניסה, יציאה והפסקות  
+- יצירת PDF חדש עם הנתונים המשתנים  
+- תמיכה מלאה בעברית וב-RTL  
 
-## Installation
+---
 
-Install the required dependencies:
+## ⚙️ דרישות מערכת
+- **Python** 3.8 ומעלה  
+- **pip** (מנהל חבילות של Python)  
+- מערכת הפעלה: Windows / Linux / macOS  
+
+---
+---
+
+## 🧩 התקנה
+
+### 1️⃣ הורדת הפרויקט  
+העתק את כל קבצי הפרויקט לתיקייה במחשב שלך.
+
+### 2️⃣ יצירת סביבה וירטואלית (מומלץ)
+
+**Windows:**
+```bash
+python -m venv venv
+venv\Scripts\activate
+````
+
+**Linux / macOS:**
+
+```bash
+python3 -m venv venv
+source venv/bin/activate
+```
+
+### 3️⃣ התקנת תלויות
 
 ```bash
 pip install -r requirements.txt
 ```
 
-## Quick Start
+התקנה זו תוריד ותתקין את החבילות הבאות:
 
-```python
-from pdf_extractor import extract_attendance_data
+* **PyMuPDF** – קריאת PDF
+* **PyPDF2** – חילוץ טקסט מ-PDF
+* **pdfplumber** – ניתוח מבנה PDF
+* **reportlab** – יצירת PDF
+* **arabic-reshaper**, **python-bidi** – תמיכה בעברית ו-RTL
 
-# Extract attendance data from PDF
-data = extract_attendance_data('attendance.pdf')
-print(data)
-# Output: [{"date": "2024-05-01", "start": "08:00", "end": "17:00", "break": "00:30"}]
+---
+
+## 📁 מבנה תיקיות
+
+```
+project/
+│
+├── src/
+│   ├── __init__.py
+│   ├── main.py                  # נקודת כניסה ראשית
+│   ├── pdf_reader.py            # קריאת PDF
+│   ├── attendance_parser.py     # פרסור נתונים
+│   ├── data_generator.py        # יצירת וריאציות
+│   ├── pdf_writer.py            # כתיבת PDF
+│   ├── font_manager.py          # ניהול פונטים
+│   ├── structure_analyzer.py    # ניתוח מבנה
+│   ├── config.py                # הגדרות כלליות
+│   └── utils.py                 # פונקציות עזר
+│
+├── input/                       # קבצי PDF לעיבוד
+├── output/                      # קבצי פלט
+├── fonts/                       # פונטים (אופציונלי)
+│
+├── requirements.txt             # רשימת תלויות
+└── README.md                    # קובץ זה
 ```
 
-## Usage
+> ℹ️ התיקיות `input/` ו-`output/` ייווצרו אוטומטית בהרצה הראשונה.
 
-### Basic Usage
+---
 
-```python
-from pdf_extractor import extract_attendance_data
+## ▶️ הרצת התוכנית
 
-# Extract with automatic library selection
-data = extract_attendance_data('attendance.pdf')
-
-# Extract with specific library
-data = extract_attendance_data('attendance.pdf', library='pdfplumber')
-data = extract_attendance_data('attendance.pdf', library='pymupdf')
-```
-
-### Advanced Usage
-
-```python
-from pdf_extractor import AttendanceExtractor
-
-# Create extractor instance
-extractor = AttendanceExtractor(library='pdfplumber')
-
-# Extract data
-data = extractor.extract('attendance.pdf')
-
-# Process the data
-for record in data:
-    print(f"Date: {record['date']}")
-    print(f"Start: {record.get('start', 'N/A')}")
-    print(f"End: {record.get('end', 'N/A')}")
-    print(f"Break: {record.get('break', 'N/A')}")
-    print("-" * 20)
-```
-
-### Command Line Usage
+### שימוש בסיסי (ברירת מחדל)
 
 ```bash
-python pdf_extractor.py attendance.pdf
+cd src
+python main.py
 ```
 
-## Output Format
+התוכנית תעבד את הקבצים הבאים:
 
-The module returns a list of dictionaries with the following structure:
+* קובץ קלט: `input/w.pdf`
+* קובץ פלט: `output/new.pdf`
 
-```python
-[
-    {
-        "date": "2024-05-01",      # Date in YYYY-MM-DD format
-        "start": "08:00",          # Start time in HH:MM format (24-hour)
-        "end": "17:00",            # End time in HH:MM format (24-hour)
-        "break": "00:30"           # Break duration (optional)
-    },
-    # ... more records
-]
 ```
-
-## Supported Formats
-
-### Date Formats
-- YYYY-MM-DD (2024-05-01)
-- MM/DD/YYYY (05/01/2024)
-- DD/MM/YYYY (01/05/2024)
-- MM-DD-YYYY (05-01-2024)
-- DD-MM-YYYY (01-05-2024)
-
-### Time Formats
-- HH:MM (24-hour: 08:00, 17:30)
-- HH:MM AM/PM (12-hour: 8:00 AM, 5:30 PM)
-
-### Keywords
-The parser looks for context keywords to identify time types:
-- **Start time**: start, in, arrive, begin
-- **End time**: end, out, leave, finish
-- **Break time**: break, lunch, rest
-
-## Error Handling
-
-The module includes comprehensive error handling:
-
-```python
-from pdf_extractor import extract_attendance_data, PDFExtractorError
-
-try:
-    data = extract_attendance_data('attendance.pdf')
-except PDFExtractorError as e:
-    print(f"Extraction failed: {e}")
-except FileNotFoundError:
-    print("PDF file not found")
 ```
-
-## Testing
-
-Run the test script to verify functionality:
-
-```bash
-python test_pdf_extractor.py
-```
-
-## Dependencies
-
-- `pdfplumber>=0.9.0` - PDF text extraction
-- `PyMuPDF>=1.23.0` - Alternative PDF processing
-- `python-dateutil>=2.8.0` - Date parsing utilities
-
-## License
-
-This project is open source and available under the MIT License.

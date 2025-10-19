@@ -232,8 +232,8 @@ def main():
     """נקודת כניסה ראשית"""
 
     # ברירות מחדל
-    DEFAULT_INPUT = "input/w.pdf"
-    DEFAULT_OUTPUT = "output/new.pdf"
+    DEFAULT_INPUT = "input/u.pdf"
+    DEFAULT_OUTPUT = "output/new2.pdf"
 
     # קריאת ארגומנטים (פשוט)
     if len(sys.argv) > 1:

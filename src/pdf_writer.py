@@ -1,59 +1,47 @@
 """
-pdf_writer.py - Unified PDF Writer
-מאחד את pdf_writer.py ו-pdf_writer_enhanced.py המקוריים
-משתמש ב-font_manager ובניתוח המבנה
+pdf_writer.py - PDF Writer עם תמיכה בטבלה עליונה
 """
 
 import logging
 from pathlib import Path
-from typing import List, Dict, Any, Optional
+from typing import Optional
 
-from reportlab.lib.pagesizes import A4, letter
+from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
 from reportlab.lib.units import cm
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.enums import TA_RIGHT, TA_CENTER, TA_LEFT
+from reportlab.lib.styles import ParagraphStyle
+from reportlab.lib.enums import TA_RIGHT, TA_CENTER
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
-from reportlab.pdfgen import canvas as pdf_canvas
-
-from font_manager import font_manager
-
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
-# Register Hebrew-supporting fonts
-pdfmetrics.registerFont(TTFont('Arial', 'C:/Windows/Fonts/arial.ttf'))
-pdfmetrics.registerFont(TTFont('Arial-Bold', 'C:/Windows/Fonts/arialbd.ttf'))
+from font_manager import font_manager
 
+# Register fonts
+try:
+    pdfmetrics.registerFont(TTFont('Arial', 'C:/Windows/Fonts/arial.ttf'))
+    pdfmetrics.registerFont(TTFont('Arial-Bold', 'C:/Windows/Fonts/arialbd.ttf'))
+except:
+    pass
 
 logger = logging.getLogger(__name__)
 
 
 class PDFWriter:
-    """מחלקה מאוחדת ליצירת PDF מדוחות נוכחות"""
+    """מחלקה ליצירת PDF מדוחות נוכחות"""
 
     def __init__(self, output_path: str):
         self.output_path = Path(output_path)
         self.output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    def write(self, parsed_report, structure: Optional[Dict] = None,
+    def write(self, parsed_report, structure: Optional[dict] = None,
               preserve_layout: bool = True):
-        """
-        כתיבת דוח לPDF
-
-        Args:
-            parsed_report: ParsedReport מהמנתח
-            structure: מבנה מקורי מה-reader (אופציונלי)
-            preserve_layout: האם לשמור על העיצוב המקורי
-        """
+        """כתיבת דוח לPDF"""
         from attendance_parser import TemplateType
 
         logger.info(f"Writing PDF to {self.output_path}")
 
-        # בחירת שיטת כתיבה לפי סוג
-        if preserve_layout and structure:
-            self._write_with_structure(parsed_report, structure)
-        elif parsed_report.template_type == TemplateType.DETAILED:
+        if parsed_report.template_type == TemplateType.DETAILED:
             self._write_detailed_template(parsed_report)
         else:
             self._write_simple_template(parsed_report)
@@ -61,23 +49,21 @@ class PDFWriter:
         logger.info(f"✅ PDF written successfully")
 
     def _write_simple_template(self, report):
-        """כתיבת תבנית פשוטה"""
+        """כתיבת תבנית פשוטה עם טבלה עליונה"""
         doc = SimpleDocTemplate(
             str(self.output_path),
             pagesize=A4,
-            rightMargin=2*cm,
-            leftMargin=2*cm,
-            topMargin=2*cm,
-            bottomMargin=2*cm
+            rightMargin=1.5*cm,
+            leftMargin=1.5*cm,
+            topMargin=1.5*cm,
+            bottomMargin=1.5*cm
         )
 
         elements = []
-        styles = getSampleStyleSheet()
 
-        # סגנון עברי
+        # סגנונות
         hebrew_style = ParagraphStyle(
             'Hebrew',
-            parent=styles['Normal'],
             fontName='Arial',
             fontSize=10,
             alignment=TA_RIGHT
@@ -88,59 +74,100 @@ class PDFWriter:
             parent=hebrew_style,
             fontSize=14,
             alignment=TA_CENTER,
-            spaceAfter=20,
+            spaceAfter=15,
             fontName='Arial-Bold'
         )
 
-        # כותרת
-        title_text = font_manager.process_hebrew_text("דוח נוכחות חודשי")
-        title = Paragraph(title_text, title_style)
-        elements.append(title)
-        elements.append(Spacer(1, 0.5*cm))
-
-        # מידע עליון
+        # ===== טבלה עליונה - כתיבת התוכן המקורי =====
         metadata = report.metadata
-        info_data = []
 
-        if metadata.total_salary:
-            info_data.append([
-                font_manager.process_hebrew_text('סה"כ לתשלום'),
-                f'₪ {metadata.total_salary:.2f}'
-            ])
+        if metadata.top_table_rows and len(metadata.top_table_rows) > 0:
+            # כתיבת הטבלה המקורית בדיוק כמו שהיא
+            # נסה לפרסר את השורות לפורמט טבלה
+            top_table_data = []
 
-        if metadata.hourly_rate:
-            info_data.append([
-                font_manager.process_hebrew_text('מחיר לשעה'),
-                f'₪ {metadata.hourly_rate:.2f}'
-            ])
+            for line in metadata.top_table_rows:
+                # אם יש מספר בשורה, נפריד אותו
+                parts = line.split()
+                if len(parts) >= 2:
+                    # הנחה: המספר בסוף, התיאור בהתחלה
+                    numbers = [p for p in parts if any(c.isdigit() for c in p)]
+                    words = [p for p in parts if p not in numbers]
 
-        if metadata.total_hours:
-            info_data.append([
+                    if numbers and words:
+                        label = ' '.join(words)
+                        value = ' '.join(numbers)
+                        top_table_data.append([
+                            font_manager.process_hebrew_text(label),
+                            value
+                        ])
+                else:
+                    # שורה עם תיאור בלבד או מספר בלבד
+                    top_table_data.append([font_manager.process_hebrew_text(line), ''])
+
+            if top_table_data:
+                top_table = Table(top_table_data, colWidths=[12*cm, 4*cm])
+                top_table.setStyle(TableStyle([
+                    ('FONT', (0, 0), (-1, -1), 'Arial', 10),
+                    ('ALIGN', (0, 0), (0, -1), 'RIGHT'),
+                    ('ALIGN', (1, 0), (1, -1), 'CENTER'),
+                    ('GRID', (0, 0), (-1, -1), 1, colors.black),
+                    ('BACKGROUND', (0, 0), (0, -1), colors.lightgrey),
+                    ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                    ('TOPPADDING', (0, 0), (-1, -1), 6),
+                    ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+                    ('RIGHTPADDING', (0, 0), (-1, -1), 10),
+                    ('LEFTPADDING', (0, 0), (-1, -1), 10),
+                ]))
+                elements.append(top_table)
+                elements.append(Spacer(1, 0.8*cm))
+        else:
+            # אם לא נמצאה טבלה מקורית, נכתוב את הברירת מחדל
+            top_table_data = []
+
+            total_hours = metadata.total_hours if metadata.total_hours else sum(r.hours for r in report.records if r.hours)
+
+            if metadata.total_salary:
+                top_table_data.append([
+                    font_manager.process_hebrew_text('סה"כ לתשלום'),
+                    f'{metadata.total_salary:.2f} ₪'
+                ])
+
+            top_table_data.append([
                 font_manager.process_hebrew_text('סה"כ שעות החודשית'),
-                f'{metadata.total_hours:.2f}'
+                f'{total_hours:.2f}'
             ])
 
-        if metadata.required_hours:
-            info_data.append([
-                font_manager.process_hebrew_text('סה"כ שעות עבודה למשרה'),
-                f'{metadata.required_hours:.2f}'
-            ])
+            if metadata.hourly_rate:
+                top_table_data.append([
+                    font_manager.process_hebrew_text('מחיר לשעה'),
+                    f'{metadata.hourly_rate:.2f} ₪'
+                ])
 
-        if info_data:
-            info_table = Table(info_data, colWidths=[8*cm, 6*cm])
-            info_table.setStyle(TableStyle([
-                ('FONT', (0, 0), (-1, -1), 'Arial', 9),
-                ('ALIGN', (0, 0), (-1, -1), 'RIGHT'),
-                ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
-                ('BACKGROUND', (0, 0), (0, -1), colors.lightgrey),
-                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-                ('RIGHTPADDING', (0, 0), (-1, -1), 10),
-                ('LEFTPADDING', (0, 0), (-1, -1), 10),
-            ]))
-            elements.append(info_table)
-            elements.append(Spacer(1, 1*cm))
+            if metadata.required_hours:
+                top_table_data.append([
+                    font_manager.process_hebrew_text('סה"כ שעות עבודה למשרה'),
+                    f'{metadata.required_hours:.2f}'
+                ])
 
-        # טבלת נוכחות
+            if top_table_data:
+                top_table = Table(top_table_data, colWidths=[10*cm, 5*cm])
+                top_table.setStyle(TableStyle([
+                    ('FONT', (0, 0), (-1, -1), 'Arial', 10),
+                    ('ALIGN', (0, 0), (0, -1), 'RIGHT'),
+                    ('ALIGN', (1, 0), (1, -1), 'CENTER'),
+                    ('GRID', (0, 0), (-1, -1), 1, colors.black),
+                    ('BACKGROUND', (0, 0), (0, -1), colors.lightgrey),
+                    ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                    ('TOPPADDING', (0, 0), (-1, -1), 8),
+                    ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+                    ('RIGHTPADDING', (0, 0), (-1, -1), 10),
+                    ('LEFTPADDING', (0, 0), (-1, -1), 10),
+                ]))
+                elements.append(top_table)
+                elements.append(Spacer(1, 1*cm))
+
+        # ===== טבלת נוכחות =====
         headers = [
             font_manager.process_hebrew_text(h)
             for h in ['הערות', 'סה"כ', 'שעות עבודה', 'שעת סיום', 'שעת התחלה', 'יום בשבוע', 'תאריך']
@@ -148,9 +175,10 @@ class PDFWriter:
 
         data = [headers]
 
+        # הוספת רשומות
         for record in report.records:
             row = [
-                '',  # הערות
+                record.notes or '',
                 f'{record.total:.2f}' if record.total else '',
                 f'{record.hours:.2f}' if record.hours else '',
                 record.end_time or '',
@@ -160,11 +188,7 @@ class PDFWriter:
             ]
             data.append(row)
 
-        # הוספת שורות ריקות
-        while len(data) < 22:
-            data.append(['', '', '', '', '', '', ''])
-
-        col_widths = [2.5*cm, 2*cm, 2*cm, 2*cm, 2*cm, 2.5*cm, 2.5*cm]
+        col_widths = [2.5*cm, 1.8*cm, 2*cm, 2*cm, 2*cm, 2.5*cm, 2.5*cm]
         attendance_table = Table(data, colWidths=col_widths)
 
         attendance_table.setStyle(TableStyle([
@@ -172,7 +196,7 @@ class PDFWriter:
             ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
             ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
-            ('FONT', (0, 1), (-1, -1), 'Arial', 8),
+            ('FONT', (0, 1), (-1, -1), 'Arial', 9),
             ('ALIGN', (0, 1), (-1, -1), 'CENTER'),
             ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
@@ -182,6 +206,7 @@ class PDFWriter:
         elements.append(attendance_table)
 
         doc.build(elements)
+        logger.info(f"✅ Simple template written with top table")
 
     def _write_detailed_template(self, report):
         """כתיבת תבנית מפורטת"""
@@ -195,11 +220,9 @@ class PDFWriter:
         )
 
         elements = []
-        styles = getSampleStyleSheet()
 
         hebrew_style = ParagraphStyle(
             'Hebrew',
-            parent=styles['Normal'],
             fontName='Arial',
             fontSize=10,
             alignment=TA_RIGHT
@@ -287,29 +310,11 @@ class PDFWriter:
         elements.append(summary_table)
 
         doc.build(elements)
-
-    def _write_with_structure(self, report, structure: Dict):
-        """כתיבה עם שמירה על מבנה מקורי (מתקדם)"""
-        # TODO: מימוש מלא בעתיד - כרגע נשתמש בתבנית רגילה
-        logger.info("Structure-preserving write requested, falling back to template")
-
-        from attendance_parser import TemplateType
-        if report.template_type == TemplateType.DETAILED:
-            self._write_detailed_template(report)
-        else:
-            self._write_simple_template(report)
+        logger.info(f"✅ Detailed template written")
 
 
-def write_pdf(output_path: str, parsed_report, structure: Optional[Dict] = None,
+def write_pdf(output_path: str, parsed_report, structure: Optional[dict] = None,
               preserve_layout: bool = True):
-    """
-    פונקציה עזר לכתיבת PDF
-
-    Args:
-        output_path: נתיב לשמירה
-        parsed_report: דוח מפוענח
-        structure: מבנה מקורי (אופציונלי)
-        preserve_layout: שמירת עיצוב
-    """
+    """פונקציה עזר לכתיבת PDF"""
     writer = PDFWriter(output_path)
     writer.write(parsed_report, structure, preserve_layout)
