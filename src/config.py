@@ -1,32 +1,32 @@
 """
 config.py - Configuration File
-קובץ הגדרות מרכזי למערכת
+Central configuration file for the system
 """
 
 from pathlib import Path
 
-# ========== נתיבים ==========
+# ========== PATHS ==========
 
-# תיקיות ברירת מחדל
+# Default directories
 BASE_DIR = Path(__file__).parent.parent
 INPUT_DIR = BASE_DIR / "input"
 OUTPUT_DIR = BASE_DIR / "output"
 FONTS_DIR = BASE_DIR / "fonts"
 
-# יצירת תיקיות אם לא קיימות
+# Create directories if they don't exist
 INPUT_DIR.mkdir(exist_ok=True)
 OUTPUT_DIR.mkdir(exist_ok=True)
 
-# ========== הגדרות PDF ==========
+# ========== PDF SETTINGS ==========
 
-# גודלי עמוד נתמכים
+# Supported page sizes
 PAGE_SIZES = {
     "A4": (595, 842),
     "Letter": (612, 792),
     "Legal": (612, 1008)
 }
 
-# margins ברירת מחדל (בנקודות)
+# Default margins (in points)
 DEFAULT_MARGINS = {
     "top": 36,
     "bottom": 36,
@@ -34,9 +34,9 @@ DEFAULT_MARGINS = {
     "right": 36
 }
 
-# ========== הגדרות פרסור ==========
+# ========== PARSER SETTINGS ==========
 
-# פורמטי תאריך נתמכים
+# Supported date formats
 DATE_FORMATS = [
     "%d/%m/%Y",
     "%d/%m/%y",
@@ -45,37 +45,37 @@ DATE_FORMATS = [
     "%Y-%m-%d"
 ]
 
-# פורמט זמן
+# Time format
 TIME_FORMAT = "%H:%M"
 
-# Regex timeouts (בשניות)
+# Regex timeouts (in seconds)
 REGEX_TIMEOUT = 5
 
-# ========== הגדרות וריאציות ==========
+# ========== VARIATION SETTINGS ==========
 
-# טווחי שינוי בדקות
+# Time variation ranges in minutes
 VARIATION_SETTINGS = {
     "minimal": {
         "start_minutes": 5,
         "end_minutes": 5,
         "break_minutes": 2,
-        "description": "שינויים מינימליים (±5 דקות)"
+        "description": "Minimal changes (±5 minutes)"
     },
     "moderate": {
         "start_minutes": 15,
         "end_minutes": 15,
         "break_minutes": 5,
-        "description": "שינויים בינוניים (±15 דקות)"
+        "description": "Moderate changes (±15 minutes)"
     },
     "significant": {
         "start_minutes": 30,
         "end_minutes": 30,
         "break_minutes": 10,
-        "description": "שינויים משמעותיים (±30 דקות)"
+        "description": "Significant changes (±30 minutes)"
     }
 }
 
-# גבולות זמן
+# Time boundaries
 TIME_BOUNDS = {
     "earliest_start": "06:00",
     "latest_start": "10:00",
@@ -83,17 +83,17 @@ TIME_BOUNDS = {
     "latest_end": "23:00"
 }
 
-# כללי הפסקות
+# Break rules
 BREAK_RULES = {
-    "min_hours_for_break": 6,  # שעות מינימום להפסקה
-    "short_break_minutes": 30,  # הפסקה קצרה
-    "long_break_minutes": 45,  # הפסקה ארוכה
-    "long_break_threshold": 9  # סף להפסקה ארוכה
+    "min_hours_for_break": 6,   # Minimum hours required for a break
+    "short_break_minutes": 30,  # Short break duration
+    "long_break_minutes": 45,   # Long break duration
+    "long_break_threshold": 9   # Threshold for long break
 }
 
-# ========== הגדרות פונטים ==========
+# ========== FONT SETTINGS ==========
 
-# נתיבי חיפוש פונטים
+# Font search paths
 FONT_SEARCH_PATHS = [
     # Linux
     "/usr/share/fonts/truetype/liberation/",
@@ -104,11 +104,11 @@ FONT_SEARCH_PATHS = [
     "/Library/Fonts/",
     # Windows
     "C:/Windows/Fonts/",
-    # תיקייה מקומית
+    # Local folder
     str(FONTS_DIR)
 ]
 
-# מיפוי פונטים
+# Font mappings
 FONT_MAPPINGS = {
     "Arial": ["Arial.ttf", "LiberationSans-Regular.ttf", "DejaVuSans.ttf"],
     "Arial-Bold": ["Arial-Bold.ttf", "LiberationSans-Bold.ttf", "DejaVuSans-Bold.ttf"],
@@ -116,26 +116,26 @@ FONT_MAPPINGS = {
     "Courier": ["Courier.ttf", "LiberationMono-Regular.ttf", "DejaVuSansMono.ttf"]
 }
 
-# פונט ברירת מחדל
+# Default font
 DEFAULT_FONT = "Arial"
 DEFAULT_FONT_SIZE = 10
 
-# ========== הגדרות לוגים ==========
+# ========== LOGGING SETTINGS ==========
 
-# רמת logging
+# Logging level
 LOG_LEVEL = "INFO"  # DEBUG, INFO, WARNING, ERROR, CRITICAL
 
-# פורמט לוג
+# Log format
 LOG_FORMAT = "[%(levelname)s] %(asctime)s - %(name)s - %(message)s"
 LOG_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
 
-# שמירת לוגים לקובץ
+# Save logs to file
 SAVE_LOGS = False
 LOG_FILE = OUTPUT_DIR / "processing.log"
 
-# ========== הגדרות תבניות ==========
+# ========== TEMPLATE SETTINGS ==========
 
-# מילות מפתח לזיהוי תבניות
+# Keywords for template detection
 TEMPLATE_KEYWORDS = {
     "detailed": [
         "נ.ב", "נ״ב", "בע\"מ", "בע״מ",
@@ -150,12 +150,12 @@ TEMPLATE_KEYWORDS = {
     ]
 }
 
-# סף לזיהוי תבנית (מספר מילות מפתח מינימלי)
+# Template detection threshold (minimum number of keywords)
 TEMPLATE_DETECTION_THRESHOLD = 2
 
-# ========== הגדרות ולידציה ==========
+# ========== VALIDATION SETTINGS ==========
 
-# טווחי שעות סבירים
+# Reasonable working hours ranges
 REASONABLE_HOURS = {
     "min_daily": 0,
     "max_daily": 16,
@@ -163,41 +163,40 @@ REASONABLE_HOURS = {
     "max_monthly": 400
 }
 
-# ימי סוף שבוע (0=ראשון, 6=שבת)
-WEEKEND_DAYS = (4, 5, 6)  # שישי, שבת, ראשון
+# Weekend days (0=Sunday, 6=Saturday)
+WEEKEND_DAYS = (4, 5, 6)  # Friday, Saturday, Sunday
 
-# תעריפים ברירת מחדל
+# Default hourly rates
 DEFAULT_HOURLY_RATE = 30.65
 DEFAULT_REQUIRED_HOURS = 84.0
 
-# ========== הגדרות ביצועים ==========
+# ========== PERFORMANCE SETTINGS ==========
 
-# מספר עמודים מקסימלי לניתוח מבנה
+# Max number of pages to analyze structure
 MAX_PAGES_FOR_STRUCTURE = 3
 
-# timeout לקריאת PDF (בשניות)
+# PDF read timeout (seconds)
 PDF_READ_TIMEOUT = 30
 
-# גודל buffer לטקסט (תווים)
+# Text buffer size (characters)
 TEXT_BUFFER_SIZE = 1000000  # 1MB
 
-# ========== הגדרות פיתוח ==========
+# ========== DEVELOPMENT SETTINGS ==========
 
-# מצב debug
+# Debug mode
 DEBUG_MODE = False
 
-# שמירת קבצי ביניים
+# Save intermediate files
 SAVE_INTERMEDIATE_FILES = False
 INTERMEDIATE_DIR = OUTPUT_DIR / "intermediate"
 
 if SAVE_INTERMEDIATE_FILES:
     INTERMEDIATE_DIR.mkdir(exist_ok=True)
 
-
-# ========== ייצוא הגדרות ==========
+# ========== CONFIG EXPORT ==========
 
 def get_config() -> dict:
-    """החזרת כל ההגדרות כ-dictionary"""
+    """Return all configuration values as a dictionary"""
     return {
         "paths": {
             "base_dir": str(BASE_DIR),
@@ -226,11 +225,11 @@ def get_config() -> dict:
 
 
 def print_config():
-    """הדפסת ההגדרות הנוכחיות"""
+    """Print current configuration to console"""
     config = get_config()
 
     print("=" * 60)
-    print("⚙️  הגדרות מערכת")
+    print("⚙️  System Configuration")
     print("=" * 60)
 
     for section, values in config.items():

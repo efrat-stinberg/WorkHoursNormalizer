@@ -1,6 +1,6 @@
 """
 data_generator.py - Attendance Data Variation Generator
-יוצר וריאציות לוגיות של נתוני נוכחות
+Generates logical variations of attendance data
 """
 
 import random
@@ -14,16 +14,16 @@ logger = logging.getLogger(__name__)
 
 
 class VariationLevel:
-    """רמות שינוי"""
-    MINIMAL = "minimal"      # שינויים קטנים מאוד (±5 דקות)
-    MODERATE = "moderate"    # שינויים בינוניים (±15 דקות)
-    SIGNIFICANT = "significant"  # שינויים משמעותיים (±30 דקות)
+    """Levels of variation"""
+    MINIMAL = "minimal"       # Very small changes (±5 minutes)
+    MODERATE = "moderate"     # Moderate changes (±15 minutes)
+    SIGNIFICANT = "significant"  # Significant changes (±30 minutes)
 
 
 class AttendanceVariationGenerator:
-    """מייצר וריאציות לוגיות של נתוני נוכחות"""
+    """Generates logical variations of attendance data"""
 
-    # הגדרות זמן לפי רמת שינוי
+    # Time settings per variation level
     TIME_VARIATIONS = {
         VariationLevel.MINIMAL: {
             "start_minutes": 5,
@@ -51,20 +51,20 @@ class AttendanceVariationGenerator:
 
     def generate_variation(self, parsed_report) -> Dict[str, Any]:
         """
-        יצירת וריאציה של דוח מפוענח
+        Generate a variation of a parsed report
 
         Args:
-            parsed_report: ParsedReport מהמנתח
+            parsed_report: ParsedReport object from parser
 
         Returns:
-            דוח משונה עם וריאציות לוגיות
+            Modified report with logical variations
         """
         logger.info(f"Generating variation with level: {self.variation_level}")
 
-        # העתקה עמוקה כדי לא לשנות את המקור
+        # Deep copy to avoid modifying the original
         varied_report = deepcopy(parsed_report)
 
-        # שינוי הרשומות
+        # Modify each record
         varied_records = []
         for record in varied_report.records:
             varied_record = self._vary_record(record)
@@ -72,18 +72,17 @@ class AttendanceVariationGenerator:
 
         varied_report.records = varied_records
 
-        # עדכון סיכומים
+        # Update totals
         self._recalculate_totals(varied_report)
 
         logger.info(f"✅ Generated variation with {len(varied_records)} records")
         return varied_report
 
     def _vary_record(self, record):
-        """שינוי רשומה בודדת"""
-        # העתקה עמוקה
+        """Modify a single record"""
         varied = deepcopy(record)
 
-        # שינוי זמני כניסה ויציאה
+        # Modify start and end times
         if varied.start_time:
             varied.start_time = self._vary_time(
                 varied.start_time,
@@ -100,21 +99,21 @@ class AttendanceVariationGenerator:
                 latest="23:00"
             )
 
-        # שינוי זמן הפסקה אם קיים
+        # Modify break time if present
         if hasattr(varied, 'break_time') and varied.break_time:
             varied.break_time = self._vary_break_time(
                 varied.break_time,
                 self.config["break_minutes"]
             )
 
-        # חישוב מחדש של סה"כ שעות
+        # Recalculate total hours
         if varied.start_time and varied.end_time:
             break_hours = self._time_to_hours(varied.break_time) if hasattr(varied, 'break_time') and varied.break_time else 0
             total_hours = self._calculate_hours(varied.start_time, varied.end_time, break_hours)
             varied.hours = total_hours
             varied.total = total_hours
 
-            # עדכון אחוזים אם זה דוח מפורט
+            # Update overtime percentages if detailed report
             if hasattr(varied, 'hours_100'):
                 self._recalculate_percentages(varied)
 
@@ -123,27 +122,25 @@ class AttendanceVariationGenerator:
     def _vary_time(self, time_str: str, max_variation: int,
                    earliest: str = "00:00", latest: str = "23:59") -> str:
         """
-        שינוי זמן בתוך טווח מותר
+        Vary time within allowed range
 
         Args:
-            time_str: זמן בפורמט HH:MM
-            max_variation: וריאציה מקסימלית בדקות
-            earliest: זמן מוקדם ביותר מותר
-            latest: זמן מאוחר ביותר מותר
+            time_str: Time in HH:MM format
+            max_variation: Maximum variation in minutes
+            earliest: Earliest allowed time
+            latest: Latest allowed time
         """
         try:
-            # המרה ל-datetime
             time_obj = datetime.strptime(time_str, "%H:%M")
 
-            # הוספת וריאציה אקראית
+            # Add random variation
             variation = random.randint(-max_variation, max_variation)
             varied_time = time_obj + timedelta(minutes=variation)
 
-            # הגבלה לטווח המותר - עבודה עם שעות ודקות בלבד
+            # Keep within allowed range
             earliest_obj = datetime.strptime(earliest, "%H:%M")
             latest_obj = datetime.strptime(latest, "%H:%M")
 
-            # השוואה לפי שעה ודקה בלבד
             varied_hour_min = varied_time.hour * 60 + varied_time.minute
             earliest_min = earliest_obj.hour * 60 + earliest_obj.minute
             latest_min = latest_obj.hour * 60 + latest_obj.minute
@@ -160,13 +157,13 @@ class AttendanceVariationGenerator:
             return time_str
 
     def _vary_break_time(self, break_time: str, max_variation: int) -> str:
-        """שינוי זמן הפסקה"""
+        """Modify break time"""
         try:
             time_obj = datetime.strptime(break_time, "%H:%M")
             variation = random.randint(-max_variation, max_variation)
             varied = time_obj + timedelta(minutes=variation)
 
-            # הפסקה לא יכולה להיות שלילית או יותר מ-2 שעות
+            # Break cannot be negative or longer than 2 hours
             if varied.hour > 2:
                 varied = time_obj
 
@@ -175,12 +172,12 @@ class AttendanceVariationGenerator:
             return break_time
 
     def _calculate_hours(self, start: str, end: str, break_hours: float = 0) -> float:
-        """חישוב מספר שעות עבודה"""
+        """Calculate number of working hours"""
         try:
             start_obj = datetime.strptime(start, "%H:%M")
             end_obj = datetime.strptime(end, "%H:%M")
 
-            # אם הסיום לפני ההתחלה, זה ככה כבר היה ביום למחרת
+            # If end time is earlier than start, it means it passed midnight
             if end_obj <= start_obj:
                 end_obj += timedelta(days=1)
 
@@ -193,7 +190,7 @@ class AttendanceVariationGenerator:
             return 0.0
 
     def _time_to_hours(self, time_str: str) -> float:
-        """המרת HH:MM לשעות עשרוניות"""
+        """Convert HH:MM to decimal hours"""
         try:
             time_obj = datetime.strptime(time_str, "%H:%M")
             return time_obj.hour + time_obj.minute / 60.0
@@ -201,14 +198,13 @@ class AttendanceVariationGenerator:
             return 0.0
 
     def _recalculate_percentages(self, record):
-        """חישוב מחדש של אחוזי שעות (100%, 125%, 150%)"""
+        """Recalculate overtime percentages (100%, 125%, 150%)"""
         total = record.total or 0
 
-        # כללים פשוטים:
-        # - עד 9 שעות = 100%
-        # - 9-11 שעות = חלק 125%
-        # - מעל 11 = חלק 150%
-
+        # Simple logic:
+        # - Up to 9 hours = 100%
+        # - 9–11 hours = 125%
+        # - Above 11 = 150%
         if total <= 9:
             record.hours_100 = total
             record.hours_125 = 0
@@ -222,21 +218,18 @@ class AttendanceVariationGenerator:
             record.hours_125 = 2
             record.hours_150 = total - 11
 
-        # עיגול
         record.hours_100 = round(record.hours_100, 2)
         record.hours_125 = round(record.hours_125, 2)
         record.hours_150 = round(record.hours_150, 2)
 
     def _recalculate_totals(self, report):
-        """עדכון סיכומי הדוח"""
+        """Update report totals"""
         if not report.records:
             return
 
-        # סיכום שעות
         total_hours = sum(r.hours for r in report.records if r.hours)
         report.metadata.total_hours = round(total_hours, 2)
 
-        # עדכון שכר אם יש תעריף
         if report.metadata.hourly_rate:
             report.metadata.total_salary = round(
                 report.metadata.hourly_rate * total_hours, 2
@@ -245,14 +238,14 @@ class AttendanceVariationGenerator:
 
 def create_variation(parsed_report, variation_level: str = VariationLevel.MODERATE):
     """
-    פונקציה עזר ליצירת וריאציה
+    Helper function to create a single variation
 
     Args:
-        parsed_report: ParsedReport מהמנתח
-        variation_level: רמת השינוי (minimal/moderate/significant)
+        parsed_report: ParsedReport from parser
+        variation_level: Level of variation (minimal/moderate/significant)
 
     Returns:
-        דוח משונה
+        Modified report
     """
     generator = AttendanceVariationGenerator(variation_level)
     return generator.generate_variation(parsed_report)
@@ -261,15 +254,15 @@ def create_variation(parsed_report, variation_level: str = VariationLevel.MODERA
 def create_multiple_variations(parsed_report, count: int = 3,
                                variation_level: str = VariationLevel.MODERATE) -> List:
     """
-    יצירת מספר וריאציות
+    Create multiple variations
 
     Args:
-        parsed_report: דוח מקורי
-        count: מספר וריאציות
-        variation_level: רמת שינוי
+        parsed_report: Original report
+        count: Number of variations
+        variation_level: Variation level
 
     Returns:
-        רשימת דוחות משונים
+        List of varied reports
     """
     generator = AttendanceVariationGenerator(variation_level)
     variations = []

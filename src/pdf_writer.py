@@ -1,5 +1,5 @@
 """
-pdf_writer.py - PDF Writer עם תמיכה בטבלה עליונה
+pdf_writer.py - PDF Writer with Top Table Support
 """
 
 import logging
@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 
 
 class PDFWriter:
-    """מחלקה ליצירת PDF מדוחות נוכחות"""
+    """Class for creating PDF attendance reports"""
 
     def __init__(self, output_path: str):
         self.output_path = Path(output_path)
@@ -36,7 +36,7 @@ class PDFWriter:
 
     def write(self, parsed_report, structure: Optional[dict] = None,
               preserve_layout: bool = True):
-        """כתיבת דוח לPDF"""
+        """Write report to PDF"""
         from attendance_parser import TemplateType
 
         logger.info(f"Writing PDF to {self.output_path}")
@@ -49,7 +49,7 @@ class PDFWriter:
         logger.info(f"✅ PDF written successfully")
 
     def _write_simple_template(self, report):
-        """כתיבת תבנית פשוטה עם טבלה עליונה"""
+        """Write simple template with top table"""
         doc = SimpleDocTemplate(
             str(self.output_path),
             pagesize=A4,
@@ -61,7 +61,7 @@ class PDFWriter:
 
         elements = []
 
-        # סגנונות
+        # Styles
         hebrew_style = ParagraphStyle(
             'Hebrew',
             fontName='Arial',
@@ -78,19 +78,18 @@ class PDFWriter:
             fontName='Arial-Bold'
         )
 
-        # ===== טבלה עליונה - כתיבת התוכן המקורי =====
+        # ===== Top Table - Write original content =====
         metadata = report.metadata
 
         if metadata.top_table_rows and len(metadata.top_table_rows) > 0:
-            # כתיבת הטבלה המקורית בדיוק כמו שהיא
-            # נסה לפרסר את השורות לפורמט טבלה
+            # Write original table as-is
             top_table_data = []
 
             for line in metadata.top_table_rows:
-                # אם יש מספר בשורה, נפריד אותו
+                # If row contains numbers, split
                 parts = line.split()
                 if len(parts) >= 2:
-                    # הנחה: המספר בסוף, התיאור בהתחלה
+                    # Assume number at end, description at start
                     numbers = [p for p in parts if any(c.isdigit() for c in p)]
                     words = [p for p in parts if p not in numbers]
 
@@ -102,7 +101,7 @@ class PDFWriter:
                             value
                         ])
                 else:
-                    # שורה עם תיאור בלבד או מספר בלבד
+                    # Row with only description or only number
                     top_table_data.append([font_manager.process_hebrew_text(line), ''])
 
             if top_table_data:
@@ -122,31 +121,31 @@ class PDFWriter:
                 elements.append(top_table)
                 elements.append(Spacer(1, 0.8*cm))
         else:
-            # אם לא נמצאה טבלה מקורית, נכתוב את הברירת מחדל
+            # If no original table found, write default
             top_table_data = []
 
             total_hours = metadata.total_hours if metadata.total_hours else sum(r.hours for r in report.records if r.hours)
 
             if metadata.total_salary:
                 top_table_data.append([
-                    font_manager.process_hebrew_text('סה"כ לתשלום'),
+                    font_manager.process_hebrew_text('Total Payment'),
                     f'{metadata.total_salary:.2f} ₪'
                 ])
 
             top_table_data.append([
-                font_manager.process_hebrew_text('סה"כ שעות החודשית'),
+                font_manager.process_hebrew_text('Total Monthly Hours'),
                 f'{total_hours:.2f}'
             ])
 
             if metadata.hourly_rate:
                 top_table_data.append([
-                    font_manager.process_hebrew_text('מחיר לשעה'),
+                    font_manager.process_hebrew_text('Hourly Rate'),
                     f'{metadata.hourly_rate:.2f} ₪'
                 ])
 
             if metadata.required_hours:
                 top_table_data.append([
-                    font_manager.process_hebrew_text('סה"כ שעות עבודה למשרה'),
+                    font_manager.process_hebrew_text('Total Required Hours'),
                     f'{metadata.required_hours:.2f}'
                 ])
 
@@ -167,15 +166,15 @@ class PDFWriter:
                 elements.append(top_table)
                 elements.append(Spacer(1, 1*cm))
 
-        # ===== טבלת נוכחות =====
+        # ===== Attendance Table =====
         headers = [
             font_manager.process_hebrew_text(h)
-            for h in ['הערות', 'סה"כ', 'שעות עבודה', 'שעת סיום', 'שעת התחלה', 'יום בשבוע', 'תאריך']
+            for h in ['Notes', 'Total', 'Work Hours', 'End Time', 'Start Time', 'Day of Week', 'Date']
         ]
 
         data = [headers]
 
-        # הוספת רשומות
+        # Add records
         for record in report.records:
             row = [
                 record.notes or '',
@@ -209,7 +208,7 @@ class PDFWriter:
         logger.info(f"✅ Simple template written with top table")
 
     def _write_detailed_template(self, report):
-        """כתיבת תבנית מפורטת"""
+        """Write detailed template"""
         doc = SimpleDocTemplate(
             str(self.output_path),
             pagesize=A4,
@@ -237,16 +236,16 @@ class PDFWriter:
             fontName='Arial-Bold'
         )
 
-        # כותרת
-        title_text = report.metadata.company_name or "נ.ב. תושר כח אדם בע\"מ"
+        # Title
+        title_text = report.metadata.company_name or "N.B. Human Resources Ltd."
         title = Paragraph(font_manager.process_hebrew_text(title_text), title_style)
         elements.append(title)
         elements.append(Spacer(1, 0.3*cm))
 
-        # כותרות טבלה
+        # Table headers
         headers = [
             font_manager.process_hebrew_text(h)
-            for h in ['שבת', '150%', '125%', '100%', 'סה"כ', 'הפסקה', 'יציאה', 'כניסה', 'מקום', 'יום', 'תאריך']
+            for h in ['Saturday', '150%', '125%', '100%', 'Total', 'Break', 'End', 'Start', 'Location', 'Day', 'Date']
         ]
 
         data = [headers]
@@ -261,7 +260,7 @@ class PDFWriter:
                 record.break_time if hasattr(record, 'break_time') and record.break_time else '00:30',
                 record.end_time or '00:00',
                 record.start_time or '00:00',
-                font_manager.process_hebrew_text(record.location) if hasattr(record, 'location') and record.location else 'גוב',
+                font_manager.process_hebrew_text(record.location) if hasattr(record, 'location') and record.location else 'GOV',
                 font_manager.process_hebrew_text(record.day_of_week) if record.day_of_week else '',
                 record.date or ''
             ]
@@ -285,17 +284,17 @@ class PDFWriter:
         elements.append(main_table)
         elements.append(Spacer(1, 0.5*cm))
 
-        # טבלת סיכום
+        # Summary Table
         metadata = report.metadata
         summary_data = [
-            [font_manager.process_hebrew_text('ימים'), str(len(report.records))],
-            [font_manager.process_hebrew_text('סה"כ שעות'), f'{metadata.total_hours:.1f}' if metadata.total_hours else '0'],
-            [font_manager.process_hebrew_text('שעות 100%'), f'{metadata.total_hours:.1f}' if metadata.total_hours else '0'],
-            [font_manager.process_hebrew_text('שעות 125%'), '0'],
-            [font_manager.process_hebrew_text('שעות 150%'), '0'],
-            [font_manager.process_hebrew_text('שעות שבת'), '0'],
-            [font_manager.process_hebrew_text('בונוס'), '0'],
-            [font_manager.process_hebrew_text('נסיעות'), '0']
+            [font_manager.process_hebrew_text('Days'), str(len(report.records))],
+            [font_manager.process_hebrew_text('Total Hours'), f'{metadata.total_hours:.1f}' if metadata.total_hours else '0'],
+            [font_manager.process_hebrew_text('100% Hours'), f'{metadata.total_hours:.1f}' if metadata.total_hours else '0'],
+            [font_manager.process_hebrew_text('125% Hours'), '0'],
+            [font_manager.process_hebrew_text('150% Hours'), '0'],
+            [font_manager.process_hebrew_text('Saturday Hours'), '0'],
+            [font_manager.process_hebrew_text('Bonus'), '0'],
+            [font_manager.process_hebrew_text('Travel'), '0']
         ]
 
         summary_table = Table(summary_data, colWidths=[3*cm, 3*cm])
@@ -315,6 +314,6 @@ class PDFWriter:
 
 def write_pdf(output_path: str, parsed_report, structure: Optional[dict] = None,
               preserve_layout: bool = True):
-    """פונקציה עזר לכתיבת PDF"""
+    """Helper function to write PDF"""
     writer = PDFWriter(output_path)
     writer.write(parsed_report, structure, preserve_layout)

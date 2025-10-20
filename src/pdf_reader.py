@@ -1,6 +1,6 @@
 """
 pdf_reader.py - Unified PDF Reading Layer
-מאחד חילוץ טקסט וניתוח מבנה למודול אחד מקיף
+Unifies text extraction and structure analysis into a comprehensive module
 """
 
 import logging
@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class FontInfo:
-    """מידע על פונט"""
+    """Font information"""
     name: str
     size: float
     bold: bool = False
@@ -27,7 +27,7 @@ class FontInfo:
 
 @dataclass
 class ColumnInfo:
-    """מידע על עמודה בטבלה"""
+    """Information about a table column"""
     name: str
     x: float
     width: float
@@ -37,7 +37,7 @@ class ColumnInfo:
 
 @dataclass
 class PageStructure:
-    """מבנה של עמוד בדוח"""
+    """Structure of a report page"""
     page_number: int
     width: float
     height: float
@@ -51,7 +51,7 @@ class PageStructure:
 
 @dataclass
 class PDFContent:
-    """תוכן מלא של PDF לאחר קריאה"""
+    """Full PDF content after reading"""
     file_path: str
     text: str
     page_count: int
@@ -60,7 +60,7 @@ class PDFContent:
 
 
 class PDFReader:
-    """מחלקה מאוחדת לקריאת PDF עם ניתוח מבנה"""
+    """Unified PDF reader class with structure analysis"""
 
     def __init__(self, pdf_path: str):
         self.pdf_path = Path(pdf_path)
@@ -71,30 +71,30 @@ class PDFReader:
 
     def read(self, analyze_structure: bool = True) -> PDFContent:
         """
-        קריאה מלאה של PDF
+        Full PDF reading
 
         Args:
-            analyze_structure: האם לנתח גם את המבנה הגרפי
+            analyze_structure: Whether to also analyze the graphical structure
 
         Returns:
-            PDFContent עם כל המידע
+            PDFContent with all information
         """
         logger.info(f"Reading PDF: {self.pdf_path}")
 
-        # חילוץ טקסט
+        # Text extraction
         text = self._extract_text()
 
-        # קבלת page count
+        # Get page count
         page_count = self._get_page_count()
 
-        # יצירת אובייקט תוכן בסיסי
+        # Create basic content object
         self.content = PDFContent(
             file_path=str(self.pdf_path),
             text=text,
             page_count=page_count
         )
 
-        # ניתוח מבנה אם נדרש
+        # Analyze structure if requested
         if analyze_structure:
             structures = self._analyze_structure()
             self.content.structures = structures
@@ -103,9 +103,9 @@ class PDFReader:
         return self.content
 
     def _extract_text(self) -> str:
-        """חילוץ טקסט בשיטות מרובות (fallback)"""
+        """Text extraction using multiple methods (fallback)"""
 
-        # ניסיון 1: PyPDF2
+        # Attempt 1: PyPDF2
         try:
             text = self._extract_with_pypdf2()
             if text and len(text.strip()) > 100:
@@ -114,7 +114,7 @@ class PDFReader:
         except Exception as e:
             logger.warning(f"PyPDF2 extraction failed: {e}")
 
-        # ניסיון 2: pdfplumber
+        # Attempt 2: pdfplumber
         try:
             text = self._extract_with_pdfplumber()
             if text and len(text.strip()) > 100:
@@ -123,7 +123,7 @@ class PDFReader:
         except Exception as e:
             logger.warning(f"pdfplumber extraction failed: {e}")
 
-        # ניסיון 3: PyMuPDF
+        # Attempt 3: PyMuPDF
         try:
             text = self._extract_with_pymupdf()
             if text:
@@ -136,7 +136,7 @@ class PDFReader:
         return ""
 
     def _extract_with_pypdf2(self) -> str:
-        """חילוץ עם PyPDF2"""
+        """Extraction using PyPDF2"""
         reader = PdfReader(str(self.pdf_path))
         text_parts = []
         for page in reader.pages:
@@ -146,7 +146,7 @@ class PDFReader:
         return "\n".join(text_parts)
 
     def _extract_with_pdfplumber(self) -> str:
-        """חילוץ עם pdfplumber"""
+        """Extraction using pdfplumber"""
         text_parts = []
         with pdfplumber.open(str(self.pdf_path)) as pdf:
             for page in pdf.pages:
@@ -156,7 +156,7 @@ class PDFReader:
         return "\n".join(text_parts)
 
     def _extract_with_pymupdf(self) -> str:
-        """חילוץ עם PyMuPDF"""
+        """Extraction using PyMuPDF"""
         doc = fitz.open(str(self.pdf_path))
         text_parts = []
         for page in doc:
@@ -165,7 +165,7 @@ class PDFReader:
         return "\n".join(text_parts)
 
     def _get_page_count(self) -> int:
-        """קבלת מספר עמודים"""
+        """Get number of pages"""
         try:
             doc = fitz.open(str(self.pdf_path))
             count = len(doc)
@@ -175,7 +175,7 @@ class PDFReader:
             return 1
 
     def _analyze_structure(self) -> List[PageStructure]:
-        """ניתוח מבנה גרפי של כל העמודים"""
+        """Analyze graphical structure of all pages"""
         structures = []
 
         try:
@@ -193,24 +193,24 @@ class PDFReader:
         return structures
 
     def _analyze_page_structure(self, doc, page_num: int) -> PageStructure:
-        """ניתוח מבנה של עמוד בודד"""
+        """Analyze the structure of a single page"""
         page = doc[page_num]
         width, height = page.rect.width, page.rect.height
 
-        # חילוץ spans (מילים עם מיקום)
+        # Extract spans (words with position)
         page_dict = page.get_text("dict")
         spans = []
         fonts_dict = {}
 
         for block in page_dict.get("blocks", []):
-            if block.get("type") != 0:  # רק טקסט
+            if block.get("type") != 0:  # text only
                 continue
 
             for line in block.get("lines", []):
                 for span in line.get("spans", []):
                     spans.append(span)
 
-                    # איסוף פונטים
+                    # Collect fonts
                     font_key = (
                         span.get("font", ""),
                         round(span.get("size", 10), 1),
@@ -219,22 +219,22 @@ class PDFReader:
                     )
                     fonts_dict[font_key] = fonts_dict.get(font_key, 0) + 1
 
-        # חישוב margins
+        # Calculate margins
         margins = self._calculate_margins(spans, width, height)
 
-        # זיהוי עמודות
+        # Detect columns
         columns = self._detect_columns(spans, margins, height)
 
-        # המרת פונטים לרשימה
+        # Convert fonts to list
         fonts = [
             FontInfo(name=f[0], size=f[1], bold=f[2], italic=f[3], count=count)
             for f, count in sorted(fonts_dict.items(), key=lambda x: -x[1])
         ]
 
-        # חישוב row spacing
+        # Calculate row spacing
         row_spacing = self._calculate_row_spacing(spans)
 
-        # תיבת הטבלה
+        # Table bounding box
         table_bbox = self._calculate_table_bbox(columns, spans, margins, height)
 
         return PageStructure(
@@ -250,7 +250,7 @@ class PDFReader:
         )
 
     def _calculate_margins(self, spans: List[Dict], width: float, height: float) -> Dict[str, float]:
-        """חישוב margins מהטקסט"""
+        """Calculate margins from text"""
         if not spans:
             return {"top": 36, "bottom": 36, "left": 36, "right": 36}
 
@@ -268,21 +268,21 @@ class PDFReader:
 
     def _detect_columns(self, spans: List[Dict], margins: Dict[str, float],
                         page_height: float) -> List[ColumnInfo]:
-        """זיהוי עמודות הטבלה"""
+        """Detect table columns"""
         if not spans:
             return []
 
-        # מציאת header spans (בחלק העליון)
+        # Find header spans (top part)
         header_y = margins["top"] + 0.05 * page_height
         header_spans = [s for s in spans if s["bbox"][1] <= header_y]
 
         if not header_spans:
             header_spans = sorted(spans, key=lambda s: s["bbox"][1])[:15]
 
-        # קיבוץ לפי X
+        # Group by X
         x_positions = sorted(set(round(s["bbox"][0], 1) for s in header_spans))
 
-        # יצירת clusters
+        # Create clusters
         clusters = []
         if x_positions:
             current_cluster = [x_positions[0]]
@@ -296,14 +296,14 @@ class PDFReader:
 
         column_xs = [sum(c) / len(c) for c in clusters]
 
-        # יצירת עמודות
+        # Create columns
         columns = []
         for i, x in enumerate(column_xs):
-            # רוחב עמודה
+            # Column width
             next_x = column_xs[i + 1] if i + 1 < len(column_xs) else (margins["right"] + 100)
             col_width = max(20, next_x - x - 4)
 
-            # שם עמודה מה-header הקרוב
+            # Column name from nearest header
             name = f"col_{i + 1}"
             for span in header_spans:
                 if abs(span["bbox"][0] - x) < col_width / 2:
@@ -323,14 +323,14 @@ class PDFReader:
 
     def _guess_alignment(self, col_x: float, col_width: float,
                          spans: List[Dict]) -> str:
-        """ניחוש alignment של עמודה"""
-        # מציאת spans בעמודה זו
+        """Guess column alignment"""
+        # Find spans in this column
         col_spans = [s for s in spans if abs(s["bbox"][0] - col_x) < col_width / 2]
 
         if not col_spans:
             return "left"
 
-        # בדיקה אם רוב ה-spans מתחילים קרוב ל-X
+        # Check if most spans start near X
         left_aligned = sum(1 for s in col_spans if abs(s["bbox"][0] - col_x) < 3)
 
         if left_aligned > len(col_spans) * 0.7:
@@ -339,27 +339,27 @@ class PDFReader:
         return "center"
 
     def _calculate_row_spacing(self, spans: List[Dict]) -> float:
-        """חישוב מרווח בין שורות"""
+        """Calculate spacing between rows"""
         if len(spans) < 2:
             return 14.0
 
-        # מציאת Y של כל שורה
+        # Get Y positions of all rows
         y_positions = sorted(set(round(s["bbox"][1], 1) for s in spans))
 
         if len(y_positions) < 2:
             return 14.0
 
-        # חישוב gaps
+        # Compute gaps
         gaps = [y_positions[i + 1] - y_positions[i] for i in range(len(y_positions) - 1)]
 
-        # החזרת הגודל הנפוץ ביותר
+        # Return most common size
         from collections import Counter
         counter = Counter(round(g, 1) for g in gaps)
         return counter.most_common(1)[0][0] if counter else 14.0
 
     def _calculate_table_bbox(self, columns: List[ColumnInfo], spans: List[Dict],
                               margins: Dict[str, float], height: float) -> Dict[str, float]:
-        """חישוב תיבת הטבלה"""
+        """Calculate table bounding box"""
         if not columns or not spans:
             return {"x": 0, "y": 0, "width": 0, "height": 0}
 
@@ -376,7 +376,7 @@ class PDFReader:
         }
 
     def _sanitize_text(self, text: str) -> str:
-        """ניקוי טקסט"""
+        """Sanitize text"""
         if not text:
             return ""
 
@@ -389,14 +389,14 @@ class PDFReader:
 
 def read_pdf(pdf_path: str, analyze_structure: bool = True) -> PDFContent:
     """
-    פונקציה עזר לקריאת PDF
+    Helper function to read PDF
 
     Args:
-        pdf_path: נתיב לקובץ PDF
-        analyze_structure: האם לנתח מבנה גרפי
+        pdf_path: Path to PDF file
+        analyze_structure: Whether to analyze graphical structure
 
     Returns:
-        PDFContent עם כל המידע
+        PDFContent with all information
     """
     reader = PDFReader(pdf_path)
     return reader.read(analyze_structure=analyze_structure)

@@ -1,6 +1,6 @@
 """
 utils.py - Utility Functions
-פונקציות עזר משותפות למערכת
+Common helper functions for the system
 """
 
 import re
@@ -10,20 +10,20 @@ from typing import Optional
 
 logger = logging.getLogger(__name__)
 
-# פורמטים
+# Formats
 TIME_FORMAT = "%H:%M"
 DATE_FORMAT = "%d/%m/%Y"
 
 
 def parse_time(time_str: Optional[str]) -> Optional[datetime]:
     """
-    המרת מחרוזת זמן ל-datetime
+    Convert a time string to a datetime object.
 
     Args:
-        time_str: זמן בפורמט "HH:MM"
+        time_str: Time string in "HH:MM" format.
 
     Returns:
-        datetime או None במקרה של כשלון
+        datetime object or None if parsing fails.
     """
     if not time_str:
         return None
@@ -40,13 +40,13 @@ def parse_time(time_str: Optional[str]) -> Optional[datetime]:
 
 def time_to_str(dt: Optional[datetime]) -> str:
     """
-    המרת datetime למחרוזת זמן
+    Convert a datetime object to a time string.
 
     Args:
-        dt: datetime object
+        dt: datetime object.
 
     Returns:
-        מחרוזת בפורמט "HH:MM" או מחרוזת ריקה
+        String in "HH:MM" format or empty string if None.
     """
     if not dt:
         return ""
@@ -55,18 +55,18 @@ def time_to_str(dt: Optional[datetime]) -> str:
 
 def parse_date(date_str: Optional[str]) -> Optional[datetime]:
     """
-    המרת מחרוזת תאריך ל-datetime
+    Convert a date string to a datetime object.
 
     Args:
-        date_str: תאריך בפורמט "DD/MM/YYYY"
+        date_str: Date string in "DD/MM/YYYY" format.
 
     Returns:
-        datetime או None
+        datetime object or None if parsing fails.
     """
     if not date_str:
         return None
 
-    # נסה פורמטים שונים
+    # Try multiple formats
     formats = [DATE_FORMAT, "%d/%m/%y", "%d.%m.%Y", "%d-%m-%Y"]
 
     for fmt in formats:
@@ -80,7 +80,7 @@ def parse_date(date_str: Optional[str]) -> Optional[datetime]:
 
 
 def date_to_str(dt: Optional[datetime]) -> str:
-    """המרת datetime למחרוזת תאריך"""
+    """Convert datetime to a date string."""
     if not dt:
         return ""
     return dt.strftime(DATE_FORMAT)
@@ -88,21 +88,21 @@ def date_to_str(dt: Optional[datetime]) -> str:
 
 def clamp_time(dt: datetime, earliest: str = "00:00", latest: str = "23:59") -> datetime:
     """
-    הגבלת זמן לטווח מותר
+    Clamp a datetime to a specified allowed range.
 
     Args:
-        dt: datetime להגבלה
-        earliest: זמן מוקדם ביותר
-        latest: זמן מאוחר ביותר
+        dt: datetime to clamp.
+        earliest: earliest allowed time.
+        latest: latest allowed time.
 
     Returns:
-        datetime מוגבל
+        Clamped datetime object.
     """
     try:
         earliest_dt = datetime.strptime(earliest, TIME_FORMAT)
         latest_dt = datetime.strptime(latest, TIME_FORMAT)
 
-        # שימוש באותו תאריך
+        # Use the same date
         t = dt.replace(year=earliest_dt.year, month=earliest_dt.month, day=earliest_dt.day)
 
         if t < earliest_dt:
@@ -117,27 +117,27 @@ def clamp_time(dt: datetime, earliest: str = "00:00", latest: str = "23:59") -> 
 
 def duration_hours(start: datetime, end: datetime, break_minutes: float = 0.0) -> float:
     """
-    חישוב משך זמן בשעות בין שני זמנים
+    Calculate duration in hours between two times.
 
     Args:
-        start: זמן התחלה
-        end: זמן סיום
-        break_minutes: דקות הפסקה
+        start: Start time.
+        end: End time.
+        break_minutes: Break duration in minutes.
 
     Returns:
-        מספר שעות (עשרוני)
+        Number of hours (decimal).
     """
     if not start or not end:
         return 0.0
 
-    # אם הסיום לפני ההתחלה, נניח שזה למחרת
+    # If end is before start, assume it's next day
     if end < start:
         end = end + timedelta(days=1)
 
     delta_seconds = (end - start).total_seconds()
     delta_hours = delta_seconds / 3600.0
 
-    # הפחתת הפסקה
+    # Subtract break
     delta_hours -= break_minutes / 60.0
 
     return max(0.0, round(delta_hours, 2))
@@ -145,32 +145,31 @@ def duration_hours(start: datetime, end: datetime, break_minutes: float = 0.0) -
 
 def is_weekend(date_str: str, weekend_days: tuple = (4, 5)) -> bool:
     """
-    בדיקה אם תאריך הוא סוף שבוע
+    Check if a date falls on a weekend.
 
     Args:
-        date_str: תאריך בפורמט "DD/MM/YYYY"
-        weekend_days: tuple של ימים (0=ראשון, 4=שישי, 5=שבת)
+        date_str: Date string in "DD/MM/YYYY" format.
+        weekend_days: Tuple of weekend day numbers (0=Monday, 4=Friday, 5=Saturday).
 
     Returns:
-        True אם סוף שבוע
+        True if the date is a weekend.
     """
     dt = parse_date(date_str)
     if not dt:
         return False
 
-    # 0=Monday, 4=Friday, 5=Saturday, 6=Sunday
     return dt.weekday() in weekend_days
 
 
 def get_day_name_hebrew(date_str: str) -> str:
     """
-    קבלת שם יום בעברית
+    Get the name of the day in Hebrew.
 
     Args:
-        date_str: תאריך
+        date_str: Date string.
 
     Returns:
-        שם יום בעברית
+        Day name in Hebrew.
     """
     dt = parse_date(date_str)
     if not dt:
@@ -191,23 +190,23 @@ def get_day_name_hebrew(date_str: str) -> str:
 
 def sanitize_text(text: str) -> str:
     """
-    ניקוי טקסט מתווים מיוחדים
+    Clean text from special characters.
 
     Args:
-        text: טקסט לניקוי
+        text: Text to clean.
 
     Returns:
-        טקסט מנוקה
+        Cleaned text.
     """
     if not text:
         return ""
 
-    # הסרת תווים בעייתיים
+    # Remove problematic characters
     text = text.replace("\r", " ")
     text = text.replace("\uFEFF", "")  # BOM
     text = text.replace("\xa0", " ")   # non-breaking space
 
-    # נורמליזציה של רווחים
+    # Normalize spaces
     text = re.sub(r"[ \t]+", " ", text)
     text = re.sub(r"\n{3,}", "\n\n", text)
 
@@ -216,20 +215,20 @@ def sanitize_text(text: str) -> str:
 
 def safe_float(value: Optional[str], default: float = 0.0) -> float:
     """
-    המרה בטוחה למספר עשרוני
+    Safely convert a value to float.
 
     Args:
-        value: ערך להמרה
-        default: ערך ברירת מחדל
+        value: Value to convert.
+        default: Default value if conversion fails.
 
     Returns:
-        מספר עשרוני
+        Float number.
     """
     if value is None:
         return default
 
     try:
-        # טיפול בפסיקים כנקודה עשרונית
+        # Handle comma as decimal point
         str_value = str(value).replace(",", ".")
         return float(str_value)
     except (ValueError, AttributeError):
@@ -238,14 +237,14 @@ def safe_float(value: Optional[str], default: float = 0.0) -> float:
 
 def safe_int(value: Optional[str], default: int = 0) -> int:
     """
-    המרה בטוחה למספר שלם
+    Safely convert a value to integer.
 
     Args:
-        value: ערך להמרה
-        default: ערך ברירת מחדל
+        value: Value to convert.
+        default: Default value if conversion fails.
 
     Returns:
-        מספר שלם
+        Integer number.
     """
     if value is None:
         return default
@@ -258,28 +257,28 @@ def safe_int(value: Optional[str], default: int = 0) -> int:
 
 def format_currency(amount: float, currency: str = "₪") -> str:
     """
-    עיצוב סכום כספי
+    Format a monetary amount.
 
     Args:
-        amount: סכום
-        currency: סימן מטבע
+        amount: Amount.
+        currency: Currency symbol.
 
     Returns:
-        מחרוזת מעוצבת
+        Formatted string.
     """
     return f"{currency} {amount:,.2f}"
 
 
 def validate_time_range(start: str, end: str) -> bool:
     """
-    ולידציה שזמן סיום אחרי זמן התחלה
+    Validate that end time is after start time.
 
     Args:
-        start: זמן התחלה "HH:MM"
-        end: זמן סיום "HH:MM"
+        start: Start time "HH:MM".
+        end: End time "HH:MM".
 
     Returns:
-        True אם תקין
+        True if valid.
     """
     start_dt = parse_time(start)
     end_dt = parse_time(end)
@@ -287,20 +286,20 @@ def validate_time_range(start: str, end: str) -> bool:
     if not start_dt or not end_dt:
         return False
 
-    # מותר שהסיום יהיה למחרת (כלומר "לפני" ההתחלה בשעון)
+    # It is allowed for end to be the next day
     return True
 
 
 def calculate_break_from_hours(work_hours: float) -> float:
     """
-    חישוב הפסקה סטנדרטית לפי שעות עבודה
-    (כלל אצבע: 30 דקות אחרי 6 שעות, 45 אחרי 9)
+    Calculate standard break based on work hours.
+    (Rule of thumb: 30 minutes after 6 hours, 45 after 9 hours)
 
     Args:
-        work_hours: שעות עבודה
+        work_hours: Number of work hours.
 
     Returns:
-        דקות הפסקה
+        Break duration in minutes.
     """
     if work_hours < 6:
         return 0
@@ -312,26 +311,26 @@ def calculate_break_from_hours(work_hours: float) -> float:
 
 def round_to_quarter(hours: float) -> float:
     """
-    עיגול לרבע שעה הקרוב
+    Round hours to the nearest quarter.
 
     Args:
-        hours: שעות
+        hours: Number of hours.
 
     Returns:
-        שעות מעוגלות
+        Rounded hours.
     """
     return round(hours * 4) / 4
 
 
 def hours_to_time_string(hours: float) -> str:
     """
-    המרת שעות עשרוניות למחרוזת "HH:MM"
+    Convert decimal hours to "HH:MM" string.
 
     Args:
-        hours: שעות עשרוניות (לדוגמה: 8.5)
+        hours: Decimal hours (e.g., 8.5).
 
     Returns:
-        מחרוזת "HH:MM"
+        "HH:MM" string.
     """
     total_minutes = int(hours * 60)
     h = total_minutes // 60
@@ -341,19 +340,19 @@ def hours_to_time_string(hours: float) -> str:
 
 def normalize_hebrew_text(text: str) -> str:
     """
-    נורמליזציה של טקסט עברי (גרשיים, גרש)
+    Normalize Hebrew text (quotes, apostrophes).
 
     Args:
-        text: טקסט עברי
+        text: Hebrew text.
 
     Returns:
-        טקסט מנורמל
+        Normalized text.
     """
     if not text:
         return ""
 
-    # תחליפי גרשיים
+    # Replace quotation marks
     text = text.replace("״", '"').replace("׳", "'")
-    text = text.replace("'", '"')  # גרש בודד
+    text = text.replace("'", '"')  # Single quote
 
     return text.strip()
