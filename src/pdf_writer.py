@@ -245,7 +245,7 @@ class PDFWriter:
         # Table headers
         headers = [
             font_manager.process_hebrew_text(h)
-            for h in ['Saturday', '150%', '125%', '100%', 'Total', 'Break', 'End', 'Start', 'Location', 'Day', 'Date']
+            for h in ['שבת','150%', '125%', '100%', 'סה"כ', 'הפסקה', 'סיום', 'התחלה', 'יום', 'תאריך']
         ]
 
         data = [headers]
@@ -260,8 +260,10 @@ class PDFWriter:
                 record.break_time if hasattr(record, 'break_time') and record.break_time else '00:30',
                 record.end_time or '00:00',
                 record.start_time or '00:00',
-                font_manager.process_hebrew_text(record.location) if hasattr(record, 'location') and record.location else 'GOV',
-                font_manager.process_hebrew_text(record.day_of_week) if record.day_of_week else '',
+                font_manager.process_hebrew_text(f"יום {record.location}") if hasattr(record,
+                                                                                      'location') and record.location else 'תבש',
+                # font_manager.process_hebrew_text(record.location) if hasattr(record, 'location') and record.location else 'תבש',
+                # font_manager.process_hebrew_text(record.day_of_week) if record.day_of_week else ''.append(font_manager.process_hebrew_text(record.location) if hasattr(record, 'location') and record.location else 'GOV'),
                 record.date or ''
             ]
             data.append(row)
@@ -287,14 +289,14 @@ class PDFWriter:
         # Summary Table
         metadata = report.metadata
         summary_data = [
-            [font_manager.process_hebrew_text('Days'), str(len(report.records))],
-            [font_manager.process_hebrew_text('Total Hours'), f'{metadata.total_hours:.1f}' if metadata.total_hours else '0'],
-            [font_manager.process_hebrew_text('100% Hours'), f'{metadata.total_hours:.1f}' if metadata.total_hours else '0'],
-            [font_manager.process_hebrew_text('125% Hours'), '0'],
-            [font_manager.process_hebrew_text('150% Hours'), '0'],
-            [font_manager.process_hebrew_text('Saturday Hours'), '0'],
-            [font_manager.process_hebrew_text('Bonus'), '0'],
-            [font_manager.process_hebrew_text('Travel'), '0']
+            [font_manager.process_hebrew_text('ימים'), str(len(report.records))],
+            [font_manager.process_hebrew_text('סה"כ שעות'), f'{metadata.total_hours:.1f}' if metadata.total_hours else '0'],
+            [font_manager.process_hebrew_text('100% שעות'), f'{metadata.total_hours:.1f}' if metadata.total_hours else '0'],
+            [font_manager.process_hebrew_text('125% שעות'), '0'],
+            [font_manager.process_hebrew_text('150% שעות'), '0'],
+            [font_manager.process_hebrew_text('שעות שבת'), '0'],
+            [font_manager.process_hebrew_text('בונוס'), '0'],
+            [font_manager.process_hebrew_text('נסיעות'), '0']
         ]
 
         summary_table = Table(summary_data, colWidths=[3*cm, 3*cm])
