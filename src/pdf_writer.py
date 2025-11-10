@@ -1,16 +1,17 @@
 """
-pdf_writer.py - PDF Writer with Top Table Support
+pdf_writer.py - Enhanced PDF Writer with Original Layout Preservation
+גרסה משופרת ששומרת על המבנה המקורי של המסמך
 """
 
 import logging
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List, Dict
 
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
-from reportlab.lib.units import cm
+from reportlab.lib.units import cm, inch
 from reportlab.lib.styles import ParagraphStyle
-from reportlab.lib.enums import TA_RIGHT, TA_CENTER
+from reportlab.lib.enums import TA_RIGHT, TA_CENTER, TA_LEFT
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
@@ -28,18 +29,25 @@ logger = logging.getLogger(__name__)
 
 
 class PDFWriter:
-    """Class for creating PDF attendance reports"""
+    """Class for creating PDF attendance reports with layout preservation"""
 
     def __init__(self, output_path: str):
         self.output_path = Path(output_path)
         self.output_path.parent.mkdir(parents=True, exist_ok=True)
+        self.structure = None
+        self.preserve_layout = True
 
     def write(self, parsed_report, structure: Optional[dict] = None,
               preserve_layout: bool = True):
-        """Write report to PDF"""
+        """Write report to PDF with optional layout preservation"""
         from attendance_parser import TemplateType
 
         logger.info(f"Writing PDF to {self.output_path}")
+        logger.info(f"Layout preservation: {'ON' if preserve_layout else 'OFF'}")
+
+        # Store structure and preferences
+        self.structure = structure
+        self.preserve_layout = preserve_layout
 
         if parsed_report.template_type == TemplateType.DETAILED:
             self._write_detailed_template(parsed_report)
@@ -48,15 +56,100 @@ class PDFWriter:
 
         logger.info(f"✅ PDF written successfully")
 
+    def _get_page_size(self):
+        """Get page size from structure or use default"""
+        if self.preserve_layout and self.structure:
+            width = self.structure.width
+            height = self.structure.height
+            logger.info(f"Using original page size: {width:.1f} x {height:.1f}")
+            return (width, height)
+        return A4
+
+    def _get_margins(self):
+        """Get margins from structure or use default"""
+        if self.preserve_layout and self.structure:
+            margins = self.structure.margins
+            logger.info(f"Using original margins: T:{margins['top']:.1f}, "
+                       f"B:{margins['bottom']:.1f}, L:{margins['left']:.1f}, R:{margins['right']:.1f}")
+            return {
+                'topMargin': margins['top'],
+                'bottomMargin': margins['bottom'],
+                'leftMargin': margins['left'],
+                'rightMargin': margins['right']
+            }
+        return {
+            'topMargin': 1.5*cm,
+            'bottomMargin': 1.5*cm,
+            'leftMargin': 1.5*cm,
+            'rightMargin': 1.5*cm
+        }
+
+    def _get_primary_font(self):
+        """Get primary font from structure or use default"""
+        if self.preserve_layout and self.structure and self.structure.fonts:
+            # Get most common font
+            primary_font = self.structure.fonts[0]
+            font_name = primary_font.name
+
+            # Map to available fonts
+            if 'Arial' in font_name or 'Helvetica' in font_name:
+                return 'Arial', primary_font.size
+            elif 'Times' in font_name:
+                return 'Times-Roman', primary_font.size
+            else:
+                return 'Arial', primary_font.size
+
+        return 'Arial', 10
+
+    def _get_header_font(self):
+        """Get header font (usually bold and larger)"""
+        base_font, base_size = self._get_primary_font()
+
+        if self.preserve_layout and self.structure and len(self.structure.fonts) > 1:
+            # Look for a larger/bold font
+            for font in self.structure.fonts[:3]:
+                if font.bold or font.size > base_size:
+                    return f"{base_font.split('-')[0]}-Bold", font.size
+
+        return f"{base_font.split('-')[0]}-Bold", base_size * 1.2
+
+    def _get_column_widths_from_structure(self, num_columns: int) -> List[float]:
+        """Calculate column widths from original structure"""
+        if not self.preserve_layout or not self.structure or not self.structure.columns:
+            return None
+
+        columns = self.structure.columns
+
+        # If we have exactly the number of columns we need
+        if len(columns) == num_columns:
+            widths = [col.width for col in columns]
+            logger.info(f"Using original column widths: {[f'{w:.1f}' for w in widths]}")
+            return widths
+
+        # If we have more or fewer columns, try to adapt
+        logger.warning(f"Column count mismatch: found {len(columns)}, needed {num_columns}")
+        return None
+
+    def _get_row_height(self):
+        """Get row height from structure"""
+        if self.preserve_layout and self.structure:
+            row_height = self.structure.row_spacing
+            logger.info(f"Using original row height: {row_height:.1f}")
+            return row_height
+        return 0.6*cm
+
     def _write_simple_template(self, report):
-        """Write simple template with top table"""
+        """Write simple template with original layout preservation"""
+        # Get layout parameters
+        page_size = self._get_page_size()
+        margins = self._get_margins()
+        base_font, base_font_size = self._get_primary_font()
+        header_font, header_font_size = self._get_header_font()
+
         doc = SimpleDocTemplate(
             str(self.output_path),
-            pagesize=A4,
-            rightMargin=1.5*cm,
-            leftMargin=1.5*cm,
-            topMargin=1.5*cm,
-            bottomMargin=1.5*cm
+            pagesize=page_size,
+            **margins
         )
 
         elements = []
@@ -64,32 +157,28 @@ class PDFWriter:
         # Styles
         hebrew_style = ParagraphStyle(
             'Hebrew',
-            fontName='Arial',
-            fontSize=10,
+            fontName=base_font,
+            fontSize=base_font_size,
             alignment=TA_RIGHT
         )
 
         title_style = ParagraphStyle(
             'HebrewTitle',
-            parent=hebrew_style,
-            fontSize=14,
+            fontName=header_font,
+            fontSize=header_font_size * 1.2,
             alignment=TA_CENTER,
-            spaceAfter=15,
-            fontName='Arial-Bold'
+            spaceAfter=15
         )
 
-        # ===== Top Table - Write original content =====
+        # ===== Top Table =====
         metadata = report.metadata
 
         if metadata.top_table_rows and len(metadata.top_table_rows) > 0:
-            # Write original table as-is
             top_table_data = []
 
             for line in metadata.top_table_rows:
-                # If row contains numbers, split
                 parts = line.split()
                 if len(parts) >= 2:
-                    # Assume number at end, description at start
                     numbers = [p for p in parts if any(c.isdigit() for c in p)]
                     words = [p for p in parts if p not in numbers]
 
@@ -101,13 +190,16 @@ class PDFWriter:
                             value
                         ])
                 else:
-                    # Row with only description or only number
                     top_table_data.append([font_manager.process_hebrew_text(line), ''])
 
             if top_table_data:
-                top_table = Table(top_table_data, colWidths=[12*cm, 4*cm])
+                # Calculate widths based on page size
+                page_width = page_size[0] - margins['leftMargin'] - margins['rightMargin']
+                col_widths = [page_width * 0.7, page_width * 0.3]
+
+                top_table = Table(top_table_data, colWidths=col_widths)
                 top_table.setStyle(TableStyle([
-                    ('FONT', (0, 0), (-1, -1), 'Arial', 10),
+                    ('FONT', (0, 0), (-1, -1), base_font, base_font_size),
                     ('ALIGN', (0, 0), (0, -1), 'RIGHT'),
                     ('ALIGN', (1, 0), (1, -1), 'CENTER'),
                     ('GRID', (0, 0), (-1, -1), 1, colors.black),
@@ -121,38 +213,34 @@ class PDFWriter:
                 elements.append(top_table)
                 elements.append(Spacer(1, 0.8*cm))
         else:
-            # If no original table found, write default
+            # Default top table
             top_table_data = []
-
             total_hours = metadata.total_hours if metadata.total_hours else sum(r.hours for r in report.records if r.hours)
 
             if metadata.total_salary:
                 top_table_data.append([
-                    font_manager.process_hebrew_text('Total Payment'),
+                    font_manager.process_hebrew_text('סה"כ לתשלום'),
                     f'{metadata.total_salary:.2f} ₪'
                 ])
 
             top_table_data.append([
-                font_manager.process_hebrew_text('Total Monthly Hours'),
+                font_manager.process_hebrew_text('סה"כ שעות חודשיות'),
                 f'{total_hours:.2f}'
             ])
 
             if metadata.hourly_rate:
                 top_table_data.append([
-                    font_manager.process_hebrew_text('Hourly Rate'),
+                    font_manager.process_hebrew_text('מחיר לשעה'),
                     f'{metadata.hourly_rate:.2f} ₪'
                 ])
 
-            if metadata.required_hours:
-                top_table_data.append([
-                    font_manager.process_hebrew_text('Total Required Hours'),
-                    f'{metadata.required_hours:.2f}'
-                ])
-
             if top_table_data:
-                top_table = Table(top_table_data, colWidths=[10*cm, 5*cm])
+                page_width = page_size[0] - margins['leftMargin'] - margins['rightMargin']
+                col_widths = [page_width * 0.65, page_width * 0.35]
+
+                top_table = Table(top_table_data, colWidths=col_widths)
                 top_table.setStyle(TableStyle([
-                    ('FONT', (0, 0), (-1, -1), 'Arial', 10),
+                    ('FONT', (0, 0), (-1, -1), base_font, base_font_size),
                     ('ALIGN', (0, 0), (0, -1), 'RIGHT'),
                     ('ALIGN', (1, 0), (1, -1), 'CENTER'),
                     ('GRID', (0, 0), (-1, -1), 1, colors.black),
@@ -160,8 +248,6 @@ class PDFWriter:
                     ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
                     ('TOPPADDING', (0, 0), (-1, -1), 8),
                     ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
-                    ('RIGHTPADDING', (0, 0), (-1, -1), 10),
-                    ('LEFTPADDING', (0, 0), (-1, -1), 10),
                 ]))
                 elements.append(top_table)
                 elements.append(Spacer(1, 1*cm))
@@ -169,12 +255,11 @@ class PDFWriter:
         # ===== Attendance Table =====
         headers = [
             font_manager.process_hebrew_text(h)
-            for h in ['Notes', 'Total', 'Work Hours', 'End Time', 'Start Time', 'Day of Week', 'Date']
+            for h in ['הערות', 'סה"כ', 'שעות עבודה', 'שעת סיום', 'שעת התחלה', 'יום בשבוע', 'תאריך']
         ]
 
         data = [headers]
 
-        # Add records
         for record in report.records:
             row = [
                 record.notes or '',
@@ -187,53 +272,64 @@ class PDFWriter:
             ]
             data.append(row)
 
-        col_widths = [2.5*cm, 1.8*cm, 2*cm, 2*cm, 2*cm, 2.5*cm, 2.5*cm]
+        # Try to get column widths from structure
+        col_widths = self._get_column_widths_from_structure(7)
+        if not col_widths:
+            # Default widths
+            col_widths = [2.5*cm, 1.8*cm, 2*cm, 2*cm, 2*cm, 2.5*cm, 2.5*cm]
+            logger.info("Using default column widths")
+
         attendance_table = Table(data, colWidths=col_widths)
 
+        row_height = self._get_row_height()
+
         attendance_table.setStyle(TableStyle([
-            ('FONT', (0, 0), (-1, 0), 'Arial-Bold', 9),
+            ('FONT', (0, 0), (-1, 0), header_font, header_font_size * 0.9),
             ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
             ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
-            ('FONT', (0, 1), (-1, -1), 'Arial', 9),
+            ('FONT', (0, 1), (-1, -1), base_font, base_font_size * 0.9),
             ('ALIGN', (0, 1), (-1, -1), 'CENTER'),
             ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('ROWHEIGHT', (0, 1), (-1, -1), 0.6*cm),
+            ('ROWHEIGHT', (0, 1), (-1, -1), row_height),
         ]))
 
         elements.append(attendance_table)
 
         doc.build(elements)
-        logger.info(f"✅ Simple template written with top table")
+        logger.info(f"✅ Simple template written with layout preservation")
 
     def _write_detailed_template(self, report):
-        """Write detailed template"""
+        """Write detailed template with original layout preservation"""
+        # Get layout parameters
+        page_size = self._get_page_size()
+        margins = self._get_margins()
+        base_font, base_font_size = self._get_primary_font()
+        header_font, header_font_size = self._get_header_font()
+
         doc = SimpleDocTemplate(
             str(self.output_path),
-            pagesize=A4,
-            rightMargin=1.5*cm,
-            leftMargin=1.5*cm,
-            topMargin=1.5*cm,
-            bottomMargin=1.5*cm
+            pagesize=page_size,
+            **margins
         )
 
         elements = []
 
+        # Styles
         hebrew_style = ParagraphStyle(
             'Hebrew',
-            fontName='Arial',
-            fontSize=10,
+            fontName=base_font,
+            fontSize=base_font_size,
             alignment=TA_RIGHT
         )
 
         title_style = ParagraphStyle(
             'HebrewTitle',
-            parent=hebrew_style,
-            fontSize=12,
+            fontName=header_font,
+            fontSize=header_font_size * 1.2,
             alignment=TA_CENTER,
-            spaceAfter=15,
-            fontName='Arial-Bold'
+            spaceAfter=15
         )
 
         # Title
@@ -260,27 +356,32 @@ class PDFWriter:
                 record.break_time if hasattr(record, 'break_time') and record.break_time else '00:30',
                 record.end_time or '00:00',
                 record.start_time or '00:00',
-                font_manager.process_hebrew_text(f"יום {record.location}") if hasattr(record,
-                                                                                      'location') and record.location else 'תבש',
-                # font_manager.process_hebrew_text(record.location) if hasattr(record, 'location') and record.location else 'תבש',
-                # font_manager.process_hebrew_text(record.day_of_week) if record.day_of_week else ''.append(font_manager.process_hebrew_text(record.location) if hasattr(record, 'location') and record.location else 'GOV'),
+                font_manager.process_hebrew_text(f"יום {record.location}") if hasattr(record, 'location') and record.location else 'שבת',
                 record.date or ''
             ]
             data.append(row)
 
-        col_widths = [1.2*cm, 1.2*cm, 1.2*cm, 1.2*cm, 1.2*cm, 1.5*cm, 1.5*cm, 1.5*cm, 1.5*cm, 2*cm, 2.5*cm]
+        # Try to get column widths from structure
+        col_widths = self._get_column_widths_from_structure(10)
+        if not col_widths:
+            # Default widths for detailed template
+            col_widths = [1.2*cm, 1.2*cm, 1.2*cm, 1.2*cm, 1.2*cm, 1.5*cm, 1.5*cm, 1.5*cm, 1.5*cm, 2*cm]
+            logger.info("Using default column widths for detailed template")
 
         main_table = Table(data, colWidths=col_widths)
+
+        row_height = self._get_row_height()
+
         main_table.setStyle(TableStyle([
-            ('FONT', (0, 0), (-1, 0), 'Arial-Bold', 7),
+            ('FONT', (0, 0), (-1, 0), header_font, header_font_size * 0.7),
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#4a4a4a')),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
             ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
-            ('FONT', (0, 1), (-1, -1), 'Arial', 7),
+            ('FONT', (0, 1), (-1, -1), base_font, base_font_size * 0.7),
             ('ALIGN', (0, 1), (-1, -1), 'CENTER'),
             ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('ROWHEIGHT', (0, 1), (-1, -1), 0.5*cm),
+            ('ROWHEIGHT', (0, 1), (-1, -1), row_height * 0.8),
         ]))
 
         elements.append(main_table)
@@ -301,7 +402,7 @@ class PDFWriter:
 
         summary_table = Table(summary_data, colWidths=[3*cm, 3*cm])
         summary_table.setStyle(TableStyle([
-            ('FONT', (0, 0), (-1, -1), 'Arial', 8),
+            ('FONT', (0, 0), (-1, -1), base_font, base_font_size * 0.8),
             ('ALIGN', (0, 0), (-1, -1), 'RIGHT'),
             ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
             ('BACKGROUND', (0, 0), (0, -1), colors.lightgrey),
@@ -311,11 +412,11 @@ class PDFWriter:
         elements.append(summary_table)
 
         doc.build(elements)
-        logger.info(f"✅ Detailed template written")
+        logger.info(f"✅ Detailed template written with layout preservation")
 
 
 def write_pdf(output_path: str, parsed_report, structure: Optional[dict] = None,
               preserve_layout: bool = True):
-    """Helper function to write PDF"""
+    """Helper function to write PDF with layout preservation"""
     writer = PDFWriter(output_path)
     writer.write(parsed_report, structure, preserve_layout)
