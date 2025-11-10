@@ -14,6 +14,8 @@ from attendance_parser import parse_attendance_report
 from data_generator import create_variation, VariationLevel
 from pdf_writer import write_pdf
 
+from config import INPUT_DIR, OUTPUT_DIR
+
 # Logging setup
 logging.basicConfig(
     level=logging.INFO,
@@ -232,8 +234,8 @@ def main():
     """Main entry point"""
 
     # Defaults
-    DEFAULT_INPUT = "input/w.pdf"
-    DEFAULT_OUTPUT = "output/new2.pdf"
+    DEFAULT_INPUT = str(INPUT_DIR / "w.pdf")
+    DEFAULT_OUTPUT = str(OUTPUT_DIR / "new2.pdf")
 
     # Read arguments (simple)
     if len(sys.argv) > 1:

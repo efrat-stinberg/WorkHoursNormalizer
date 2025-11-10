@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 from typing import List, Dict, Any
 from copy import deepcopy
 from dataclasses import asdict
+from config import TIME_VARIATIONS
 
 logger = logging.getLogger(__name__)
 
@@ -23,24 +24,7 @@ class VariationLevel:
 class AttendanceVariationGenerator:
     """Generates logical variations of attendance data"""
 
-    # Time settings per variation level
-    TIME_VARIATIONS = {
-        VariationLevel.MINIMAL: {
-            "start_minutes": 5,
-            "end_minutes": 5,
-            "break_minutes": 2
-        },
-        VariationLevel.MODERATE: {
-            "start_minutes": 15,
-            "end_minutes": 15,
-            "break_minutes": 5
-        },
-        VariationLevel.SIGNIFICANT: {
-            "start_minutes": 30,
-            "end_minutes": 30,
-            "break_minutes": 10
-        }
-    }
+    TIME_VARIATIONS = TIME_VARIATIONS
 
     def __init__(self, variation_level: str = VariationLevel.MODERATE):
         self.variation_level = variation_level

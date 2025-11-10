@@ -107,7 +107,8 @@ class FontManager:
             return text
         
         # Check if text contains Hebrew characters
-        if not any('\u0590' <= c <= '\u05FF' for c in text):
+        # if not any('\u0590' <= c <= '\u05FF' for c in text):
+        if not (self.is_hebrew_text(text)):
             return text
         
         try:

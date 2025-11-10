@@ -10,6 +10,8 @@ from typing import List, Dict, Optional, Tuple
 from enum import Enum
 from datetime import datetime
 
+from config import Patterns
+
 logger = logging.getLogger(__name__)
 
 
@@ -68,36 +70,6 @@ class ParsedReport:
     raw_text: str = ""
 
 
-class FlexiblePatterns:
-    """Flexible regex patterns"""
-
-    # Date - supports various formats
-    DATE = r'(\d{1,2}[\/\.\-]\d{1,2}[\/\.\-]\d{2,4})'
-
-    # Time - HH:MM or H:MM
-    TIME = r'(\d{1,2}:\d{2})'
-
-    # Decimal number
-    DECIMAL = r'([\d]+\.[\d]{1,2})'
-
-    # Hebrew weekdays
-    HEBREW_DAY = r'([א-ת]{2,6}י?\'?)'
-
-    # English weekdays
-    ENGLISH_DAY = r'(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|Mon|Tue|Wed|Thu|Fri|Sat|Sun)'
-
-    # Keywords for recognition
-    DETAILED_KEYWORDS = [
-        r'125%', r'150%', r'שבת', r'הפסקה', r'break',
-        r'מקום', r'location', r'נ\.ב', r'בע[״"\']מ'
-    ]
-
-    SIMPLE_KEYWORDS = [
-        r'כניסה', r'יציאה', r'התחלה', r'סיום',
-        r'start', r'end', r'entry', r'exit'
-    ]
-
-
 class AttendanceParser:
     """Unified enhanced parser for attendance reports"""
 
@@ -146,12 +118,12 @@ class AttendanceParser:
 
         # Method 1: keyword count
         detailed_count = sum(
-            1 for pattern in FlexiblePatterns.DETAILED_KEYWORDS
+            1 for pattern in Patterns.DETAILED_KEYWORDS
             if re.search(pattern, self.text, re.IGNORECASE)
         )
 
         simple_count = sum(
-            1 for pattern in FlexiblePatterns.SIMPLE_KEYWORDS
+            1 for pattern in Patterns.SIMPLE_KEYWORDS
             if re.search(pattern, self.text, re.IGNORECASE)
         )
 
@@ -169,8 +141,8 @@ class AttendanceParser:
 
         # Try to guess based on line patterns
         for line in self.lines[:30]:
-            times = re.findall(FlexiblePatterns.TIME, line)
-            decimals = re.findall(FlexiblePatterns.DECIMAL, line)
+            times = re.findall(Patterns.TIME, line)
+            decimals = re.findall(Patterns.DECIMAL, line)
 
             if len(times) >= 2 and len(decimals) >= 4:
                 return TemplateType.DETAILED
@@ -184,9 +156,9 @@ class AttendanceParser:
         max_elements = 0
 
         for line in self.lines[:20]:
-            dates = len(re.findall(FlexiblePatterns.DATE, line))
-            times = len(re.findall(FlexiblePatterns.TIME, line))
-            decimals = len(re.findall(FlexiblePatterns.DECIMAL, line))
+            dates = len(re.findall(Patterns.DATE, line))
+            times = len(re.findall(Patterns.TIME, line))
+            decimals = len(re.findall(Patterns.DECIMAL, line))
             words = len([w for w in line.split() if len(w) > 1])
 
             elements = dates + times + decimals + min(words, 3)
@@ -239,7 +211,7 @@ class AttendanceParser:
 
     def _extract_month_year(self):
         """Extract month and year from dates"""
-        dates = re.findall(FlexiblePatterns.DATE, self.text)
+        dates = re.findall(Patterns.DATE, self.text)
         if dates:
             try:
                 first_date = dates[0]
@@ -269,16 +241,16 @@ class AttendanceParser:
         logger.info("Parsing simple records with flexible method")
 
         for line in merged_lines:
-            date_match = re.search(FlexiblePatterns.DATE, line)
+            date_match = re.search(Patterns.DATE, line)
             if not date_match:
                 continue
             date = date_match.group(1)
             day = self._extract_day(line)
-            times = re.findall(FlexiblePatterns.TIME, line)
+            times = re.findall(Patterns.TIME, line)
             if len(times) < 2:
                 continue
             start_time, end_time = times[:2]
-            decimals = re.findall(FlexiblePatterns.DECIMAL, line)
+            decimals = re.findall(Patterns.DECIMAL, line)
             total = self._safe_float(decimals[-1]) if decimals else None
 
             record = AttendanceRecord(
@@ -300,17 +272,17 @@ class AttendanceParser:
         logger.info("Parsing detailed records with flexible method")
 
         for line in merged_lines:
-            date_match = re.search(FlexiblePatterns.DATE, line)
+            date_match = re.search(Patterns.DATE, line)
             if not date_match:
                 continue
             date = date_match.group(1)
             day = self._extract_day(line)
-            times = re.findall(FlexiblePatterns.TIME, line)
+            times = re.findall(Patterns.TIME, line)
             if len(times) < 2:
                 continue
             start_time, end_time = times[:2]
             break_time = times[2] if len(times) >= 3 else None
-            decimals = re.findall(FlexiblePatterns.DECIMAL, line)
+            decimals = re.findall(Patterns.DECIMAL, line)
             location = self._extract_location(line, day)
 
             record = DetailedAttendanceRecord(
@@ -339,11 +311,11 @@ class AttendanceParser:
 
     def _extract_day(self, line: str) -> str:
         """Extract weekday from line"""
-        hebrew_match = re.search(FlexiblePatterns.HEBREW_DAY, line)
+        hebrew_match = re.search(Patterns.HEBREW_DAY, line)
         if hebrew_match:
             return hebrew_match.group(1)
 
-        english_match = re.search(FlexiblePatterns.ENGLISH_DAY, line, re.IGNORECASE)
+        english_match = re.search(Patterns.ENGLISH_DAY, line, re.IGNORECASE)
         if english_match:
             return english_match.group(1)
         return ""
@@ -366,7 +338,7 @@ class AttendanceParser:
         merged = []
         buffer = ""
         for line in self.lines:
-            if re.match(FlexiblePatterns.DATE, line):
+            if re.match(Patterns.DATE, line):
                 if buffer:
                     merged.append(buffer.strip())
                 buffer = line
