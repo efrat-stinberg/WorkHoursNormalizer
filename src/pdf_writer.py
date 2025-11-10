@@ -1,6 +1,5 @@
 """
 pdf_writer.py - Enhanced PDF Writer with Original Layout Preservation
-גרסה משופרת ששומרת על המבנה המקורי של המסמך
 """
 
 import logging
