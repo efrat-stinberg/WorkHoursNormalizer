@@ -234,26 +234,3 @@ def create_variation(parsed_report, variation_level: str = VariationLevel.MODERA
     generator = AttendanceVariationGenerator(variation_level)
     return generator.generate_variation(parsed_report)
 
-
-def create_multiple_variations(parsed_report, count: int = 3,
-                               variation_level: str = VariationLevel.MODERATE) -> List:
-    """
-    Create multiple variations
-
-    Args:
-        parsed_report: Original report
-        count: Number of variations
-        variation_level: Variation level
-
-    Returns:
-        List of varied reports
-    """
-    generator = AttendanceVariationGenerator(variation_level)
-    variations = []
-
-    for i in range(count):
-        logger.info(f"Creating variation {i+1}/{count}")
-        varied = generator.generate_variation(parsed_report)
-        variations.append(varied)
-
-    return variations
